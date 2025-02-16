@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Home, Users, CreditCard, TrendingUp, TrendingDown, Plus } from "lucide-react";
+import { Users, FileText, CreditCard, TrendingUp, TrendingDown, Plus, Home } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface TopSection {
@@ -37,9 +37,9 @@ interface DashboardData {
 
 const NavButton = ({ active, children }: { active?: boolean; children: React.ReactNode }) => (
   <button
-    className={`px-6 py-2 rounded-lg transition-all ${
+    className={`flex items-center gap-2 px-6 py-2.5 rounded-xl transition-all duration-300 ${
       active
-        ? "bg-white/10 text-white shadow-[0_0_20px_rgba(255,255,255,0.15)]"
+        ? "bg-[#1E2B3D] text-white shadow-[0_0_30px_rgba(30,43,61,0.8)]"
         : "text-white/60 hover:text-white hover:bg-white/5"
     }`}
   >
@@ -50,39 +50,48 @@ const NavButton = ({ active, children }: { active?: boolean; children: React.Rea
 const StatsCard = ({
   title,
   mainValue,
+  trend,
   subStats,
   icon: Icon,
   gradientClass,
 }: {
   title: string;
   mainValue: string;
-  subStats: { icon: any; label: string; value: string; trend?: "up" | "down" }[];
+  trend?: string;
+  subStats: { icon: any; label: string; value: string; trend?: { value: string; positive: boolean } }[];
   icon: any;
   gradientClass: string;
 }) => (
-  <div className={`glass-card p-6 rounded-2xl space-y-4 ${gradientClass}`}>
-    <div className="space-y-1">
-      <p className="text-sm text-white/60">{title}</p>
-      <div className="flex items-center justify-between">
-        <p className="text-3xl font-semibold">{mainValue}</p>
-        <Icon className="w-8 h-8 text-white/80" />
+  <div className={`relative overflow-hidden rounded-2xl p-6 transition-all duration-300 hover:scale-[1.02] ${gradientClass}`}>
+    <div className="space-y-4">
+      <p className="text-sm text-white/70">{title}</p>
+      <div className="flex items-end gap-2">
+        <p className="text-4xl font-bold">{mainValue}</p>
+        {trend && <span className="mb-1 text-sm text-green-400">{trend}</span>}
+      </div>
+      <div className="space-y-3">
+        {subStats.map((stat, index) => (
+          <div key={index} className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/10">
+                <stat.icon className="w-4 h-4" />
+              </div>
+              <span className="text-sm text-white/70">{stat.label}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-medium">{stat.value}</span>
+              {stat.trend && (
+                <span className={stat.trend.positive ? "text-green-400" : "text-red-400"}>
+                  ({stat.trend.value})
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
-    <div className="space-y-2">
-      {subStats.map((stat, index) => (
-        <div key={index} className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-white/5">
-            <stat.icon className="w-4 h-4 text-white/60" />
-          </div>
-          <span className="text-sm text-white/60">{stat.label}:</span>
-          <span className="text-sm font-medium">{stat.value}</span>
-          {stat.trend && (
-            <span className={stat.trend === "up" ? "text-green-400" : "text-red-400"}>
-              {stat.trend === "up" ? "↑" : "↓"}
-            </span>
-          )}
-        </div>
-      ))}
+    <div className="absolute right-4 top-4 opacity-20">
+      <Icon className="w-24 h-24" />
     </div>
   </div>
 );
@@ -136,113 +145,124 @@ const Dashboard = () => {
 
   if (!data) {
     return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-admin-dark">
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#0A0F16]">
         <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-white"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-admin-dark">
-      <nav className="border-b border-white/10 backdrop-blur-xl bg-admin-dark/30">
-        <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <NavButton active>Asosiy</NavButton>
-            <NavButton>Kontentlar</NavButton>
+    <div className="min-h-screen bg-[#0A0F16]">
+      <nav className="sticky top-0 z-10 backdrop-blur-xl bg-[#0A0F16]/80 border-b border-white/5">
+        <div className="max-w-7xl mx-auto px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <NavButton active>
+                <Home className="w-4 h-4" />
+                Asosiy
+              </NavButton>
+              <NavButton>
+                <FileText className="w-4 h-4" />
+                Kontentlar
+              </NavButton>
+            </div>
+            <button className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-white text-[#0A0F16] font-medium hover:bg-white/90 transition-all duration-300">
+              <Plus className="w-4 h-4" />
+              Qo'shish
+            </button>
           </div>
-          <button className="flex items-center gap-2 px-6 py-2 rounded-lg bg-white text-admin-dark font-medium hover:bg-white/90 transition-colors">
-            <Plus className="w-4 h-4" />
-            Qo'shish
-          </button>
         </div>
       </nav>
 
       <main className="max-w-7xl mx-auto p-8 space-y-8 animate-fadeIn">
-        <h1 className="text-2xl font-semibold">Admin boshqaruv paneli</h1>
+        <h1 className="text-2xl font-bold">Admin boshqaruv paneli</h1>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <StatsCard
             title="Bugun tizimga qo'shildi"
             mainValue={`${data.top_section.users_today} ta`}
+            trend={`+${data.top_section.registered_last_7_days - data.top_section.users_today}`}
             icon={Users}
-            gradientClass="bg-gradient-to-br from-green-500/10 to-green-600/5"
+            gradientClass="bg-gradient-to-br from-[#1C3835] to-[#0F1C1B]"
             subStats={[
               {
                 icon: TrendingUp,
                 label: "7 kunda",
                 value: `${data.top_section.registered_last_7_days} ta`,
+                trend: { value: "+7", positive: true }
               },
               {
                 icon: TrendingDown,
                 label: "1 oyda",
                 value: `${data.top_section.registered_last_month} ta`,
-              },
+                trend: { value: "-62", positive: false }
+              }
             ]}
           />
           <StatsCard
             title="Umumiy foydalanuvchilar soni"
             mainValue={`${data.top_section.total_users} ta`}
             icon={Users}
-            gradientClass="bg-gradient-to-br from-orange-500/10 to-orange-600/5"
+            gradientClass="bg-gradient-to-br from-[#2B2519] to-[#161311]"
             subStats={[
               {
                 icon: TrendingUp,
                 label: "Premium",
-                value: `${data.top_section.premium_users} ta`,
+                value: `${data.top_section.premium_users} ta`
               },
               {
                 icon: TrendingDown,
                 label: "Free",
-                value: `${data.top_section.non_premium_users} ta`,
-              },
+                value: `${data.top_section.non_premium_users} ta`
+              }
             ]}
           />
           <StatsCard
             title="Umumiy kontentlar soni"
             mainValue={`${data.top_section.total_exercises + data.top_section.total_meals} ta`}
             icon={CreditCard}
-            gradientClass="bg-gradient-to-br from-purple-500/10 to-purple-600/5"
+            gradientClass="bg-gradient-to-br from-[#261A2D] to-[#130D16]"
             subStats={[
               {
                 icon: TrendingUp,
                 label: "Exercises",
-                value: `${data.top_section.total_exercises} ta`,
+                value: `${data.top_section.total_exercises} ta`
               },
               {
                 icon: TrendingDown,
                 label: "Meals",
-                value: `${data.top_section.total_meals} ta`,
-              },
+                value: `${data.top_section.total_meals} ta`
+              }
             ]}
           />
         </div>
 
-        <div className="glass-card rounded-2xl overflow-hidden">
+        <div className="rounded-2xl overflow-hidden bg-white/5 backdrop-blur-xl border border-white/10">
           <div className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Umumiy statistika</h2>
+            <h2 className="text-xl font-bold mb-6">Umumiy statistika</h2>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="text-left border-b border-white/10">
-                    <th className="pb-4 font-medium">Davlatlar</th>
-                    <th className="pb-4 font-medium">Qo'shildi</th>
-                    <th className="pb-4 font-medium">Mijozlar (obunali)</th>
-                    <th className="pb-4 font-medium">Obunasiz kishilar</th>
-                    <th className="pb-4 font-medium">Aktiv</th>
-                    <th className="pb-4 font-medium">Noaktiv</th>
-                    <th className="pb-4 font-medium">Tushum</th>
+                    <th className="pb-4 font-medium text-white/70">Davlatlar</th>
+                    <th className="pb-4 font-medium text-white/70">Qo'shildi</th>
+                    <th className="pb-4 font-medium text-white/70">Mijozlar (obunali)</th>
+                    <th className="pb-4 font-medium text-white/70">Obunasiz kishilar</th>
+                    <th className="pb-4 font-medium text-white/70">Aktiv</th>
+                    <th className="pb-4 font-medium text-white/70">Noaktiv</th>
+                    <th className="pb-4 font-medium text-white/70">Tushum</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.bottom_section
                     .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
                     .map((item, index) => (
-                      <tr key={index} className="border-b border-white/5 last:border-0">
+                      <tr key={index} className="border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors">
                         <td className="py-4">{item.country}</td>
                         <td className="py-4">{item.total_users} ta</td>
                         <td className="py-4">{item.subscribers} ta</td>
                         <td className="py-4">{item.non_subscribers} ta</td>
-                        <td className="py-4 text-green-400">{item.active_users} ta</td>
+                        <td className="py-4 text-emerald-400">{item.active_users} ta</td>
                         <td className="py-4 text-red-400">{item.inactive_users} ta</td>
                         <td className="py-4">{item.income.toLocaleString()} so'm</td>
                       </tr>
@@ -255,7 +275,7 @@ const Dashboard = () => {
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Previous
             </button>
@@ -266,8 +286,8 @@ const Dashboard = () => {
                   <button
                     key={i}
                     onClick={() => setCurrentPage(i + 1)}
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-                      currentPage === i + 1 ? "bg-white text-admin-dark" : "bg-white/5 hover:bg-white/10"
+                    className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${
+                      currentPage === i + 1 ? "bg-white text-[#0A0F16]" : "bg-white/5 hover:bg-white/10"
                     }`}
                   >
                     {i + 1}
@@ -278,7 +298,7 @@ const Dashboard = () => {
             <button
               onClick={() => setCurrentPage((p) => p + 1)}
               disabled={currentPage === Math.ceil(data.bottom_section.length / itemsPerPage)}
-              className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Next
             </button>
