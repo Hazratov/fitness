@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Users, FileText, CreditCard, TrendingUp, TrendingDown, Plus, Home } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+
 interface TopSection {
   users_today: number;
   total_users: number;
@@ -155,7 +156,7 @@ const Dashboard = () => {
     <div className="min-h-screen bg-[#0A0F16]">
       <nav className="sticky top-0 z-10 backdrop-blur-xl bg-[#0A0F16]/80 border-b border-white/5">
         <div className="max-w-7xl mx-auto px-8 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-center">
             <div className="flex items-center gap-2">
               <NavButton active>
                 <Home className="w-4 h-4" />
