@@ -8,7 +8,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    login: "",
+    email_or_phone: "",
     password: "",
   });
   const navigate = useNavigate();
@@ -23,7 +23,12 @@ const Login = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
         },
+        credentials: "include",
         body: JSON.stringify(formData),
       });
 
@@ -32,16 +37,18 @@ const Login = () => {
         localStorage.setItem("adminToken", data.token);
         navigate("/dashboard");
       } else {
+        const errorData = await response.json();
         toast({
           title: "Error",
-          description: "Invalid credentials",
+          description: errorData.email_or_phone?.[0] || "Invalid credentials",
           variant: "destructive",
         });
       }
     } catch (error) {
+      console.error("Login error:", error);
       toast({
         title: "Error",
-        description: "Something went wrong",
+        description: "Something went wrong while trying to connect to the server",
         variant: "destructive",
       });
     } finally {
@@ -60,11 +67,11 @@ const Login = () => {
             <div className="space-y-2">
               <input
                 type="text"
-                placeholder="Login"
+                placeholder="Email yoki telefon raqami"
                 className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 focus:border-white/20 focus:outline-none transition-colors"
-                value={formData.login}
+                value={formData.email_or_phone}
                 onChange={(e) =>
-                  setFormData({ ...formData, login: e.target.value })
+                  setFormData({ ...formData, email_or_phone: e.target.value })
                 }
                 required
               />
