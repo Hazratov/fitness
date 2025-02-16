@@ -246,7 +246,9 @@ const Dashboard = () => {
                             <table className="w-full">
                                 <thead>
                                 <tr className="text-left border-b border-white/10">
-                                    <th className="pb-4 font-medium text-white/70">Davlatlar</th>
+                                    <th className="pb-4 font-medium text-white/70"
+                                        style={{paddingLeft: "20px"}}>Davlatlar
+                                    </th>
                                     <th className="pb-4 font-medium text-white/70">Qo'shildi</th>
                                     <th className="pb-4 font-medium text-white/70">Mijozlar (obunali)</th>
                                     <th className="pb-4 font-medium text-white/70">Obunasiz kishilar</th>
