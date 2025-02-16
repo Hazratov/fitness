@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Home, Users, CreditCard } from "lucide-react";
@@ -12,10 +11,25 @@ interface DashboardStats {
     country: string;
     totalUsers: number;
     activeUsers: number;
-    premiumUsers: number;
+    subscribers: number;  // premiumUsers o'rniga
     revenue: number;
   }[];
 }
+
+const transformStats = (backendData: any): DashboardStats => {
+  return {
+    dailyUsers: backendData.top_section.users_today,
+    weeklyUsers: backendData.top_section.registered_last_7_days,
+    totalUsers: backendData.top_section.total_users,
+    usersByCountry: backendData.bottom_section.map((country: any) => ({
+      country: country.country,
+      totalUsers: country.total_users,
+      activeUsers: country.active_users,
+      subscribers: country.subscribers, // premiumUsers o'rniga subscribers ishlatamiz
+      revenue: country.income, // revenue o'rniga income ishlatilmoqda
+    })),
+  };
+};
 
 const StatsCard = ({
   title,
@@ -28,9 +42,7 @@ const StatsCard = ({
   icon: any;
   className?: string;
 }) => (
-  <div
-    className={`glass-card p-6 rounded-2xl space-y-4 transition-all hover:scale-[1.02] cursor-pointer ${className}`}
-  >
+  <div className={`glass-card p-6 rounded-2xl space-y-4 transition-all hover:scale-[1.02] cursor-pointer ${className}`}>
     <div className="flex items-center justify-between">
       <p className="text-sm text-gray-400">{title}</p>
       <Icon className="w-6 h-6 text-white/80" />
@@ -55,18 +67,15 @@ const Dashboard = () => {
       }
 
       try {
-        const response = await fetch(
-          "https://owntrainer.uz/api/admin/admin/dashboard",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const response = await fetch("https://owntrainer.uz/api/admin/admin/dashboard", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
         if (response.ok) {
           const data = await response.json();
-          setStats(data);
+          setStats(transformStats(data));
         } else {
           if (response.status === 401) {
             navigate("/login");
@@ -104,7 +113,7 @@ const Dashboard = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <StatsCard
-            title="Bugun kirilgan qo'shildi"
+            title="Bugun qo'shilgan foydalanuvchilar"
             value={stats.dailyUsers}
             icon={Home}
             className="bg-gradient-to-br from-green-500/20 to-green-600/20"
@@ -132,26 +141,18 @@ const Dashboard = () => {
                   <tr className="text-left border-b border-white/10">
                     <th className="pb-4 font-medium">Davlatlar</th>
                     <th className="pb-4 font-medium">Qo'shildi</th>
-                    <th className="pb-4 font-medium">Premium</th>
+                    <th className="pb-4 font-medium">Obunachilar</th>
                     <th className="pb-4 font-medium">Daromad</th>
                   </tr>
                 </thead>
                 <tbody>
                   {stats.usersByCountry
-                    .slice(
-                      (currentPage - 1) * itemsPerPage,
-                      currentPage * itemsPerPage
-                    )
+                    ?.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
                     .map((item, index) => (
-                      <tr
-                        key={index}
-                        className="border-b border-white/5 last:border-0"
-                      >
+                      <tr key={index} className="border-b border-white/5 last:border-0">
                         <td className="py-4">{item.country}</td>
                         <td className="py-4">{item.totalUsers} ta</td>
-                        <td className="py-4 text-admin-green">
-                          {item.premiumUsers} ta
-                        </td>
+                        <td className="py-4 text-admin-green">{item.subscribers} ta</td>
                         <td className="py-4">{item.revenue.toLocaleString()} so'm</td>
                       </tr>
                     ))}
@@ -168,33 +169,21 @@ const Dashboard = () => {
               Previous
             </button>
             <div className="flex space-x-2">
-              {Array.from(
-                {
-                  length: Math.ceil(
-                    stats.usersByCountry.length / itemsPerPage
-                  ),
-                },
-                (_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setCurrentPage(i + 1)}
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-                      currentPage === i + 1
-                        ? "bg-white text-admin-dark"
-                        : "bg-white/5 hover:bg-white/10"
-                    }`}
-                  >
-                    {i + 1}
-                  </button>
-                )
-              )}
+              {Array.from({ length: Math.ceil(stats.usersByCountry.length / itemsPerPage) }, (_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                    currentPage === i + 1 ? "bg-white text-admin-dark" : "bg-white/5 hover:bg-white/10"
+                  }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
             </div>
             <button
               onClick={() => setCurrentPage((p) => p + 1)}
-              disabled={
-                currentPage ===
-                Math.ceil(stats.usersByCountry.length / itemsPerPage)
-              }
+              disabled={currentPage === Math.ceil(stats.usersByCountry.length / itemsPerPage)}
               className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Next

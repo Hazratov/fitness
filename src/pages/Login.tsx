@@ -23,18 +23,15 @@ const Login = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Accept": "application/json",
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
+          "Accept": "application/json"
         },
-        credentials: "include",
         body: JSON.stringify(formData),
       });
 
       if (response.ok) {
         const data = await response.json();
-        localStorage.setItem("adminToken", data.token);
+        const {access} = data
+        localStorage.setItem("adminToken", access);
         navigate("/dashboard");
       } else {
         const errorData = await response.json();
