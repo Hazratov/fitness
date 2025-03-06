@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Edit, Trash2, Home, FileText, Plus } from "lucide-react";
 import { useContent, ExerciseBlock, Meal } from "@/contexts/ContentContext";
+import { Button } from "@/components/ui/button";
 
 type ContentType = "exercise" | "meal" | "all";
 
@@ -53,7 +54,7 @@ const ContentList: React.FC = () => {
   };
   
   const handleAddContent = () => {
-    navigate("/add-content");
+    navigate("/content-selection");
   };
 
   return (
@@ -62,27 +63,30 @@ const ContentList: React.FC = () => {
       <div className="bg-[#1a2336] py-3 px-6 flex items-center justify-between sticky top-0 z-10">
         <div className="text-xl font-bold">Fitness Admin</div>
         <div className="flex items-center gap-4">
-          <button 
-            className="flex items-center gap-2 bg-[#252e3f] hover:bg-[#2c374d] px-4 py-2 rounded-full"
+          <Button 
+            variant="outline"
+            className="flex items-center gap-2 bg-[#252e3f] hover:bg-[#2c374d] text-white border-0"
             onClick={() => navigate("/dashboard")}
           >
             <Home size={18} />
             <span>Asosiy</span>
-          </button>
-          <button 
-            className="flex items-center gap-2 bg-[#2563eb] hover:bg-[#1d54cf] px-4 py-2 rounded-full"
+          </Button>
+          <Button 
+            variant="outline"
+            className="flex items-center gap-2 bg-[#2563eb] hover:bg-[#1d54cf] text-white border-0"
             onClick={() => navigate("/content")}
           >
             <FileText size={18} />
             <span>Kontentlar</span>
-          </button>
-          <button 
-            className="flex items-center gap-2 bg-[#252e3f] hover:bg-[#2c374d] px-4 py-2 rounded-full"
+          </Button>
+          <Button 
+            variant="outline"
+            className="flex items-center gap-2 bg-[#252e3f] hover:bg-[#2c374d] text-white border-0"
             onClick={handleAddContent}
           >
             <Plus size={18} />
             <span>Qo'shish</span>
-          </button>
+          </Button>
         </div>
       </div>
       
