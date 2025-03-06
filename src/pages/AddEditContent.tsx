@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { 
@@ -92,7 +91,6 @@ const AddEditContent: React.FC = () => {
     },
   });
 
-  // Load data for edit mode
   useEffect(() => {
     if (isEditMode && id) {
       const exerciseBlock = exerciseBlocks.find(block => block.id === id);
@@ -133,7 +131,6 @@ const AddEditContent: React.FC = () => {
     }
   }, [id, exerciseBlocks, meals, isEditMode]);
 
-  // Handle main image upload
   const handleMainImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -153,7 +150,6 @@ const AddEditContent: React.FC = () => {
     }
   };
 
-  // Handle step image upload
   const handleStepImageUpload = (stepId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -169,7 +165,6 @@ const AddEditContent: React.FC = () => {
     }
   };
 
-  // Add a new step
   const addStep = () => {
     const newStepId = crypto.randomUUID();
     
@@ -190,14 +185,12 @@ const AddEditContent: React.FC = () => {
     }
   };
 
-  // Update a step
   const updateStep = (id: string, data: Partial<ExerciseStep | MealPreparationStep>) => {
     setSteps(prev =>
       prev.map(step => (step.id === id ? { ...step, ...data } : step))
     );
   };
 
-  // Remove a step
   const removeStep = (id: string) => {
     setSteps(prev => prev.filter(step => step.id !== id));
     
@@ -209,7 +202,6 @@ const AddEditContent: React.FC = () => {
     }
   };
 
-  // Handle form submission
   const onSubmit = async () => {
     try {
       if (contentType === "mashqlar") {
@@ -219,7 +211,12 @@ const AddEditContent: React.FC = () => {
         const formData = exerciseForm.getValues();
         
         const exerciseData = {
-          ...formData,
+          name: formData.name,
+          calories: formData.calories,
+          water_intake: formData.water_intake,
+          duration: formData.duration,
+          description: formData.description,
+          video_url: formData.video_url,
           steps: steps as ExerciseStep[],
           image_url: mainImage || undefined,
         };
@@ -236,7 +233,12 @@ const AddEditContent: React.FC = () => {
         const formData = mealForm.getValues();
         
         const mealData = {
-          ...formData,
+          name: formData.name,
+          calories: formData.calories,
+          water_intake: formData.water_intake,
+          preparation_time: formData.preparation_time,
+          description: formData.description,
+          video_url: formData.video_url,
           steps: steps as MealPreparationStep[],
           image_url: mainImage || undefined,
         };
@@ -258,7 +260,6 @@ const AddEditContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#111827] text-white">
-      {/* Top Navigation */}
       <div className="bg-[#1a2336] py-3 px-6 flex items-center justify-between sticky top-0 z-10">
         <div className="text-xl font-bold">Fitness Admin</div>
         <div className="flex items-center gap-4">
@@ -736,7 +737,6 @@ const AddEditContent: React.FC = () => {
           )}
         </div>
 
-        {/* Steps Section */}
         <div className="bg-[#1a2336] rounded-lg p-6 mb-8">
           <h2 className="text-xl font-semibold mb-6">
             {contentType === "mashqlar" ? "Mashqlar ketma ketligi kiritish" : "Tayyorlash ketma ketligi kiritish"}
@@ -866,7 +866,6 @@ const AddEditContent: React.FC = () => {
           </div>
         </div>
 
-        {/* Save Button */}
         <Button 
           onClick={onSubmit}
           className="w-full py-6 bg-[#2563eb] hover:bg-[#1d54cf] text-white font-medium rounded-lg flex items-center justify-center gap-2"
