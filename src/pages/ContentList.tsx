@@ -2,8 +2,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Edit, Trash2, Home, FileText, Plus } from "lucide-react";
-import { useContent, ExerciseBlock, Meal } from "@/contexts/ContentContext";
+import { useContent } from "@/contexts/ContentContext";
 import { Button } from "@/components/ui/button";
+import AddContentDialog from "@/components/AddContentDialog";
 
 type ContentType = "exercise" | "meal" | "all";
 
@@ -12,6 +13,7 @@ const ContentList: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ContentType>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   
   const { exerciseBlocks, meals, deleteExerciseBlock, deleteMeal, fetchExerciseBlocks, fetchMeals } = useContent();
   
@@ -54,7 +56,7 @@ const ContentList: React.FC = () => {
   };
   
   const handleAddContent = () => {
-    navigate("/content-selection");
+    setIsAddDialogOpen(true);
   };
 
   return (
@@ -74,7 +76,6 @@ const ContentList: React.FC = () => {
           <Button 
             variant="outline"
             className="flex items-center gap-2 bg-[#2563eb] hover:bg-[#1d54cf] text-white border-0"
-            onClick={() => navigate("/content")}
           >
             <FileText size={18} />
             <span>Kontentlar</span>
@@ -89,6 +90,12 @@ const ContentList: React.FC = () => {
           </Button>
         </div>
       </div>
+      
+      {/* Add Content Dialog */}
+      <AddContentDialog 
+        isOpen={isAddDialogOpen} 
+        onClose={() => setIsAddDialogOpen(false)} 
+      />
       
       <div className="container mx-auto p-6">
         <h1 className="text-3xl font-bold mb-8">Kontentlar</h1>

@@ -2,7 +2,7 @@ import {useEffect, useState} from "react";
 import {useNavigate} from "react-router-dom";
 import {Users, FileText, CreditCard, TrendingUp, TrendingDown, Plus, Home} from "lucide-react";
 import {useToast} from "@/hooks/use-toast";
-
+import AddContentDialog from "@/components/AddContentDialog";
 
 interface TopSection {
     users_today: number;
@@ -35,8 +35,9 @@ interface DashboardData {
     bottom_section: CountryStats[];
 }
 
-const NavButton = ({active, children}: { active?: boolean; children: React.ReactNode }) => (
+const NavButton = ({active, onClick, children}: { active?: boolean; onClick?: () => void; children: React.ReactNode }) => (
     <button
+        onClick={onClick}
         className={`flex items-center gap-2 px-6 py-2.5 rounded-xl transition-all duration-300 ${
             active
                 ? "bg-[#1E2B3D] text-white shadow-[0_0_30px_rgba(30,43,61,0.8)]"
@@ -103,6 +104,7 @@ const Dashboard = () => {
     const itemsPerPage = 10;
     const navigate = useNavigate();
     const {toast} = useToast();
+    const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -144,6 +146,14 @@ const Dashboard = () => {
         fetchStats();
     }, [navigate]);
 
+    const handleContentClick = () => {
+        navigate("/content");
+    };
+
+    const handleAddClick = () => {
+        setIsAddDialogOpen(true);
+    };
+
     if (!data) {
         return (
             <div className="min-h-screen w-full flex items-center justify-center bg-[#0A0F16]">
@@ -162,12 +172,13 @@ const Dashboard = () => {
                                 <Home className="w-4 h-4"/>
                                 Asosiy
                             </NavButton>
-                            <NavButton>
+                            <NavButton onClick={handleContentClick}>
                                 <FileText className="w-4 h-4"/>
                                 Kontentlar
                             </NavButton>
                         </div>
                         <button
+                            onClick={handleAddClick}
                             className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-white text-[#0A0F16] font-medium hover:bg-white/90 transition-all duration-300">
                             <Plus className="w-4 h-4"/>
                             Qo'shish
@@ -175,6 +186,11 @@ const Dashboard = () => {
                     </div>
                 </div>
             </nav>
+
+            <AddContentDialog 
+                isOpen={isAddDialogOpen} 
+                onClose={() => setIsAddDialogOpen(false)} 
+            />
 
             <main className="max-w-7xl mx-auto p-8 space-y-8 animate-fadeIn">
                 <h1 className="text-2xl font-bold">Admin boshqaruv paneli</h1>

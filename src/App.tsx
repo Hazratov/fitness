@@ -10,7 +10,6 @@ import NotFound from "./pages/NotFound";
 import ContentList from "./pages/ContentList";
 import AddEditContent from "./pages/AddEditContent";
 import { ContentProvider } from "./contexts/ContentContext";
-import ContentTypeSelection from "./pages/ContentTypeSelection";
 
 const queryClient = new QueryClient();
 
@@ -26,7 +25,6 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/content" element={<ContentList />} />
-            <Route path="/content-selection" element={<ContentTypeSelection />} />
             <Route path="/add-content" element={<AddEditContent />} />
             <Route path="/edit-exercise/:id" element={<AddEditContent />} />
             <Route path="/edit-meal/:id" element={<AddEditContent />} />
