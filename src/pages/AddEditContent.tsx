@@ -36,6 +36,7 @@ const mealSchema = z.object({
   preparation_time: z.coerce.number().min(1, "Tayyorlash vaqti 1 daqiqadan kam bo'lmasligi kerak"),
   description: z.string().min(10, "Kamida 10 ta belgi bo'lishi kerak"),
   video_url: z.string().optional(),
+  meal_type: z.enum(["breakfast", "lunch", "snack", "dinner"]).default("breakfast"),
 });
 
 const AddEditContent: React.FC = () => {
@@ -88,6 +89,7 @@ const AddEditContent: React.FC = () => {
       preparation_time: 20,
       description: "",
       video_url: "",
+      meal_type: "breakfast",
     },
   });
 
@@ -124,6 +126,7 @@ const AddEditContent: React.FC = () => {
           preparation_time: meal.preparation_time,
           description: meal.description,
           video_url: meal.video_url || "",
+          meal_type: meal.meal_type || "breakfast",
         });
         setSteps(meal.steps);
         if (meal.image_url) setMainImage(meal.image_url);
@@ -239,6 +242,7 @@ const AddEditContent: React.FC = () => {
           preparation_time: formData.preparation_time,
           description: formData.description,
           video_url: formData.video_url,
+          meal_type: formData.meal_type,
           steps: steps as MealPreparationStep[],
           image_url: mainImage || undefined,
         };
@@ -731,6 +735,30 @@ const AddEditContent: React.FC = () => {
                       />
                     </div>
                   </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  <FormField
+                    control={mealForm.control}
+                    name="meal_type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Taom turi</FormLabel>
+                        <FormControl>
+                          <select
+                            className="w-full bg-[#131c2e] border-[#2c3855] text-white px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-[#3b82f6]"
+                            {...field}
+                          >
+                            <option value="breakfast">Nonushta</option>
+                            <option value="lunch">Tushlik</option>
+                            <option value="dinner">Kechki ovqat</option>
+                            <option value="snack">Yengil tamaddi</option>
+                          </select>
+                        </FormControl>
+                        <FormMessage className="text-red-400" />
+                      </FormItem>
+                    )}
+                  />
                 </div>
               </form>
             </Form>
