@@ -5,6 +5,16 @@ import { Edit, Trash2, Home, FileText, Plus } from "lucide-react";
 import { useContent } from "@/contexts/ContentContext";
 import { Button } from "@/components/ui/button";
 import AddContentDialog from "@/components/AddContentDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type ContentType = "exercise" | "meal" | "all";
 
@@ -14,6 +24,8 @@ const ContentList: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; type: string } | null>(null);
   
   const { exerciseBlocks, meals, deleteExerciseBlock, deleteMeal, fetchExerciseBlocks, fetchMeals } = useContent();
   
@@ -47,12 +59,34 @@ const ContentList: React.FC = () => {
     }
   };
   
-  const handleDelete = async (id: string, type: string) => {
+  const confirmDelete = (id: string, type: string) => {
+    setItemToDelete({ id, type });
+    setIsDeleteDialogOpen(true);
+  };
+  
+  const handleDelete = async () => {
+    if (!itemToDelete) return;
+    
+    const { id, type } = itemToDelete;
+    let success = false;
+    
     if (type === "Mashqlar") {
-      await deleteExerciseBlock(id);
+      success = await deleteExerciseBlock(id);
     } else {
-      await deleteMeal(id);
+      success = await deleteMeal(id);
     }
+    
+    if (success) {
+      // Refresh the data after successful deletion
+      if (type === "Mashqlar") {
+        fetchExerciseBlocks();
+      } else {
+        fetchMeals();
+      }
+    }
+    
+    setIsDeleteDialogOpen(false);
+    setItemToDelete(null);
   };
   
   const handleAddContent = () => {
@@ -97,6 +131,29 @@ const ContentList: React.FC = () => {
         onClose={() => setIsAddDialogOpen(false)} 
       />
       
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent className="bg-[#1a2336] border-[#2c3855] text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Kontentni o'chirish</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-300">
+              Siz rostdan ham bu kontentni o'chirmoqchimisiz? Bu amalni qaytarib bo'lmaydi.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-[#252e3f] hover:bg-[#2c374d] text-white border-0">
+              Bekor qilish
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              O'chirish
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
       <div className="container mx-auto p-6">
         <h1 className="text-3xl font-bold mb-8">Kontentlar</h1>
         
@@ -140,77 +197,87 @@ const ContentList: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {currentItems.map((item, index) => (
-                <tr 
-                  key={item.id} 
-                  className="border-t border-[#374151] hover:bg-[#1a2234] transition-colors"
-                >
-                  <td className="py-3 px-4 text-gray-300">
-                    {(currentPage - 1) * itemsPerPage + index + 1}
-                  </td>
-                  <td className="py-3 px-4">{item.name}</td>
-                  <td className="py-3 px-4">
-                    <span className={`px-2.5 py-1 rounded text-xs font-medium ${
-                      item.type === "Mashqlar" ? "bg-[#433b24] text-[#f59e0b]" : "bg-[#153226] text-[#10b981]"
-                    }`}>
-                      {item.type}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="flex gap-3">
-                      <button 
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#252e3f] hover:bg-[#2c374d] text-gray-300 text-sm"
-                        onClick={() => handleEdit(item.id, item.type)}
-                      >
-                        <span>O'zgartirish kiritish</span>
-                        <Edit size={16} />
-                      </button>
-                      <button 
-                        className="p-2 rounded-md bg-[#252e3f] hover:bg-[#3a1c1c] hover:text-red-400 text-sm text-gray-300"
-                        onClick={() => handleDelete(item.id, item.type)}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+              {currentItems.length > 0 ? (
+                currentItems.map((item, index) => (
+                  <tr 
+                    key={item.id} 
+                    className="border-t border-[#374151] hover:bg-[#1a2234] transition-colors"
+                  >
+                    <td className="py-3 px-4 text-gray-300">
+                      {(currentPage - 1) * itemsPerPage + index + 1}
+                    </td>
+                    <td className="py-3 px-4">{item.name}</td>
+                    <td className="py-3 px-4">
+                      <span className={`px-2.5 py-1 rounded text-xs font-medium ${
+                        item.type === "Mashqlar" ? "bg-[#433b24] text-[#f59e0b]" : "bg-[#153226] text-[#10b981]"
+                      }`}>
+                        {item.type}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex gap-3">
+                        <button 
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#252e3f] hover:bg-[#2c374d] text-gray-300 text-sm"
+                          onClick={() => handleEdit(item.id, item.type)}
+                        >
+                          <span>O'zgartirish kiritish</span>
+                          <Edit size={16} />
+                        </button>
+                        <button 
+                          className="p-2 rounded-md bg-[#252e3f] hover:bg-[#3a1c1c] hover:text-red-400 text-sm text-gray-300"
+                          onClick={() => confirmDelete(item.id, item.type)}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr className="border-t border-[#374151]">
+                  <td colSpan={4} className="py-6 text-center text-gray-400">
+                    Kontentlar topilmadi
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
         
         {/* Pagination */}
-        <div className="flex items-center justify-center gap-2">
-          <button 
-            className="p-2 rounded-md bg-[#1e293b] hover:bg-[#283548] disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-          >
-            &lt;
-          </button>
-          
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-            <button
-              key={page}
-              className={`w-8 h-8 rounded-md ${
-                currentPage === page
-                  ? "bg-[#3b82f6] text-white"
-                  : "bg-[#1e293b] hover:bg-[#283548] text-gray-300"
-              }`}
-              onClick={() => setCurrentPage(page)}
+        {totalPages > 0 && (
+          <div className="flex items-center justify-center gap-2">
+            <button 
+              className="p-2 rounded-md bg-[#1e293b] hover:bg-[#283548] disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
             >
-              {page}
+              &lt;
             </button>
-          ))}
-          
-          <button 
-            className="p-2 rounded-md bg-[#1e293b] hover:bg-[#283548] disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-            disabled={currentPage === totalPages}
-          >
-            &gt;
-          </button>
-        </div>
+            
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <button
+                key={page}
+                className={`w-8 h-8 rounded-md ${
+                  currentPage === page
+                    ? "bg-[#3b82f6] text-white"
+                    : "bg-[#1e293b] hover:bg-[#283548] text-gray-300"
+                }`}
+                onClick={() => setCurrentPage(page)}
+              >
+                {page}
+              </button>
+            ))}
+            
+            <button 
+              className="p-2 rounded-md bg-[#1e293b] hover:bg-[#283548] disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+            >
+              &gt;
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

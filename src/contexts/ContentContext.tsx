@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "sonner";
 import axios from "axios";
@@ -20,13 +21,14 @@ export interface ExerciseBlock {
   description: string;
   video_url?: string;
   image_url?: string;
+  block_type?: string; // Added for exercise type
   steps: ExerciseStep[];
 }
 
 export interface MealPreparationStep {
   id: string;
-  description: string;
   title?: string;
+  description: string;
   step_time?: string;
   step_number?: number;
 }
@@ -48,18 +50,20 @@ export interface Meal {
 interface ExerciseBlockAPI {
   id?: string | number;
   block_name: string;
-  block_kkal: string;
-  block_water_amount: string;
+  block_kkal?: string;
+  block_water_amount?: string;
   description: string;
   video_url?: string;
-  block_time: number;
-  calories_burned: string;
+  block_time?: number;
+  calories_burned?: string;
+  block_type?: string; // Added for exercise type
   exercises: {
     id?: string | number;
     name: string;
     exercise_time: string;
     description: string;
     image_url?: string;
+    file?: File; // Added for file upload
   }[];
   block_image_url?: string;
 }
@@ -77,7 +81,7 @@ interface MealAPI {
     id?: string | number;
     title: string;
     text: string;
-    step_time: string;
+    step_time: string | number;
     step_number: number;
   }[];
 }
@@ -89,12 +93,12 @@ interface ContentContextType {
   fetchMeals: () => Promise<void>;
   addExerciseBlock: (block: Omit<ExerciseBlock, "id">) => Promise<void>;
   updateExerciseBlock: (id: string, block: Partial<ExerciseBlock>) => Promise<void>;
-  deleteExerciseBlock: (id: string) => Promise<void>;
+  deleteExerciseBlock: (id: string) => Promise<boolean>;
   uploadExerciseBlockImage: (id: string, file: File) => Promise<void>;
   uploadExerciseStepImage: (blockId: string, stepId: string, file: File) => Promise<void>;
   addMeal: (meal: Omit<Meal, "id">) => Promise<void>;
   updateMeal: (id: string, meal: Partial<Meal>) => Promise<void>;
-  deleteMeal: (id: string) => Promise<void>;
+  deleteMeal: (id: string) => Promise<boolean>;
   uploadMealImage: (id: string, file: File) => Promise<void>;
 }
 
@@ -115,19 +119,28 @@ const getHeaders = () => {
   };
 };
 
+const getFormDataHeaders = () => {
+  const token = localStorage.getItem("adminToken");
+  return {
+    Authorization: token ? `Bearer ${token}` : "",
+    "Content-Type": "multipart/form-data",
+  };
+};
+
 // Conversion functions between API and app models
 const convertFromExerciseBlockAPI = (apiBlock: ExerciseBlockAPI): ExerciseBlock => {
   return {
     id: String(apiBlock.id),
     name: apiBlock.block_name,
-    calories: parseFloat(apiBlock.block_kkal),
-    water_intake: parseFloat(apiBlock.block_water_amount),
-    duration: apiBlock.block_time,
+    calories: apiBlock.block_kkal ? parseFloat(apiBlock.block_kkal) : 0,
+    water_intake: apiBlock.block_water_amount ? parseFloat(apiBlock.block_water_amount) : 0,
+    duration: apiBlock.block_time || 0,
     description: apiBlock.description,
     video_url: apiBlock.video_url,
     image_url: apiBlock.block_image_url,
+    block_type: apiBlock.block_type,
     steps: apiBlock.exercises.map(exercise => ({
-      id: String(exercise.id),
+      id: String(exercise.id || ''),
       name: exercise.name,
       duration: exercise.exercise_time,
       description: exercise.description,
@@ -145,6 +158,7 @@ const convertToExerciseBlockAPI = (block: Partial<ExerciseBlock>): Partial<Exerc
     video_url: block.video_url,
     block_time: block.duration,
     calories_burned: block.calories?.toString(),
+    block_type: block.block_type || "exercise",
     exercises: block.steps?.map(step => ({
       name: step.name,
       exercise_time: step.duration,
@@ -164,10 +178,10 @@ const convertFromMealAPI = (apiMeal: MealAPI): Meal => {
     video_url: apiMeal.video_url,
     meal_type: apiMeal.meal_type,
     steps: apiMeal.steps.map(step => ({
-      id: String(step.id),
+      id: String(step.id || ''),
       title: step.title,
       description: step.text,
-      step_time: step.step_time,
+      step_time: typeof step.step_time === 'number' ? step.step_time.toString() : step.step_time,
       step_number: step.step_number
     }))
   };
@@ -176,18 +190,18 @@ const convertFromMealAPI = (apiMeal: MealAPI): Meal => {
 const convertToMealAPI = (meal: Partial<Meal>): Partial<MealAPI> => {
   return {
     meal_type: meal.meal_type || "breakfast",
-    food_name: meal.name,
-    calories: meal.calories?.toString(),
-    water_content: meal.water_intake?.toString(),
-    preparation_time: meal.preparation_time,
+    food_name: meal.name || "",
+    calories: meal.calories?.toString() || "0",
+    water_content: meal.water_intake?.toString() || "0",
+    preparation_time: meal.preparation_time || 0,
     description: meal.description,
     video_url: meal.video_url,
     steps: meal.steps?.map(step => ({
       title: step.title || "",
       text: step.description,
-      step_time: "5",  // Default value if not provided
+      step_time: step.step_time || "5",
       step_number: step.step_number || 1
-    }))
+    })) || []
   };
 };
 
@@ -195,7 +209,7 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [exerciseBlocks, setExerciseBlocks] = useState<ExerciseBlock[]>([]);
   const [meals, setMeals] = useState<Meal[]>([]);
 
-  // Load mock data initially (will be replaced with API data)
+  // Load data initially
   useEffect(() => {
     fetchExerciseBlocks();
     fetchMeals();
@@ -230,6 +244,7 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
           water_intake: 500,
           duration: 30,
           description: "Yengil yurish yoki joggingni oqrgani uchun mashqlar",
+          block_type: "exercise",
           steps: [
             {
               id: "1",
@@ -281,11 +296,17 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
           steps: [
             {
               id: "1",
-              description: "Tuxumlarni suvda qaynatring yoki pishiring qiling"
+              title: "Prepare the Eggs",
+              description: "Tuxumlarni suvda qaynatring yoki pishiring qiling",
+              step_time: "10",
+              step_number: 1
             },
             {
               id: "2",
-              description: "Tuz va murch bilan aralashtiring"
+              title: "Assemble the Sandwich",
+              description: "Tuz va murch bilan aralashtiring",
+              step_time: "5",
+              step_number: 2
             }
           ]
         }
@@ -354,7 +375,7 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  const deleteExerciseBlock = async (id: string) => {
+  const deleteExerciseBlock = async (id: string): Promise<boolean> => {
     try {
       const response = await axios.delete(`${EXERCISE_API_BASE}/${id}/`, {
         headers: getHeaders()
@@ -363,7 +384,7 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (response.status === 204 || response.status === 200) {
         setExerciseBlocks(prev => prev.filter(item => item.id !== id));
         toast.success("Mashq bloki muvaffaqiyatli o'chirildi");
-        return;
+        return true;
       }
       
       throw new Error("Unexpected response status");
@@ -374,6 +395,7 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // Mock implementation for development/demo purposes
       setExerciseBlocks(prev => prev.filter(item => item.id !== id));
       toast.success("Mashq bloki muvaffaqiyatli o'chirildi (test mode)");
+      return true;
     }
   };
 
@@ -388,18 +410,17 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       
       // Add required fields to formData
       formData.append('block_name', currentBlock.name);
-      formData.append('block_kkal', currentBlock.calories.toString());
-      formData.append('block_water_amount', currentBlock.water_intake.toString());
+      
+      // Add optional fields if they exist
+      if (currentBlock.calories) formData.append('block_kkal', currentBlock.calories.toString());
+      if (currentBlock.water_intake) formData.append('block_water_amount', currentBlock.water_intake.toString());
       if (currentBlock.description) formData.append('description', currentBlock.description);
       if (currentBlock.video_url) formData.append('video_url', currentBlock.video_url);
-      formData.append('block_time', currentBlock.duration.toString());
-      formData.append('calories_burned', currentBlock.calories.toString());
+      if (currentBlock.duration) formData.append('block_time', currentBlock.duration.toString());
+      if (currentBlock.calories) formData.append('calories_burned', currentBlock.calories.toString());
       
-      const response = await axios.post(`${EXERCISE_API_BASE}/${id}/upload-block-image/`, formData, {
-        headers: {
-          ...getHeaders(),
-          'Content-Type': 'multipart/form-data'
-        }
+      const response = await axios.patch(`${EXERCISE_API_BASE}/${id}/upload-block-image/`, formData, {
+        headers: getFormDataHeaders()
       });
       
       if (response.status === 200) {
@@ -436,21 +457,20 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       
       // Add required fields to formData
       formData.append('block_name', currentBlock.name);
-      formData.append('block_kkal', currentBlock.calories.toString());
-      formData.append('block_water_amount', currentBlock.water_intake.toString());
+      
+      // Add optional fields if they exist
+      if (currentBlock.calories) formData.append('block_kkal', currentBlock.calories.toString());
+      if (currentBlock.water_intake) formData.append('block_water_amount', currentBlock.water_intake.toString());
       if (currentBlock.description) formData.append('description', currentBlock.description);
       if (currentBlock.video_url) formData.append('video_url', currentBlock.video_url);
-      formData.append('block_time', currentBlock.duration.toString());
-      formData.append('calories_burned', currentBlock.calories.toString());
+      if (currentBlock.duration) formData.append('block_time', currentBlock.duration.toString());
+      if (currentBlock.calories) formData.append('calories_burned', currentBlock.calories.toString());
       
-      const response = await axios.post(
+      const response = await axios.patch(
         `${EXERCISE_API_BASE}/${blockId}/upload-exercise-image/${stepId}/`, 
         formData, 
         {
-          headers: {
-            ...getHeaders(),
-            'Content-Type': 'multipart/form-data'
-          }
+          headers: getFormDataHeaders()
         }
       );
       
@@ -560,7 +580,7 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  const deleteMeal = async (id: string) => {
+  const deleteMeal = async (id: string): Promise<boolean> => {
     try {
       const response = await axios.delete(`${MEAL_API_BASE}/${id}/`, {
         headers: getHeaders()
@@ -569,7 +589,7 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (response.status === 204 || response.status === 200) {
         setMeals(prev => prev.filter(item => item.id !== id));
         toast.success("Taom muvaffaqiyatli o'chirildi");
-        return;
+        return true;
       }
       
       throw new Error("Unexpected response status");
@@ -580,6 +600,7 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // Mock implementation for development/demo purposes
       setMeals(prev => prev.filter(item => item.id !== id));
       toast.success("Taom muvaffaqiyatli o'chirildi (test mode)");
+      return true;
     }
   };
 
@@ -598,14 +619,13 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       formData.append('calories', currentMeal.calories.toString());
       formData.append('water_content', currentMeal.water_intake.toString());
       formData.append('preparation_time', currentMeal.preparation_time.toString());
+      
+      // Add optional fields if they exist
       if (currentMeal.description) formData.append('description', currentMeal.description);
       if (currentMeal.video_url) formData.append('video_url', currentMeal.video_url);
       
-      const response = await axios.post(`${MEAL_API_BASE}/${id}/upload-photo/`, formData, {
-        headers: {
-          ...getHeaders(),
-          'Content-Type': 'multipart/form-data'
-        }
+      const response = await axios.patch(`${MEAL_API_BASE}/${id}/upload-photo/`, formData, {
+        headers: getFormDataHeaders()
       });
       
       if (response.status === 200) {
