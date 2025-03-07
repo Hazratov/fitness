@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "sonner";
 import axios from "axios";
@@ -102,8 +101,9 @@ interface ContentContextType {
 const ContentContext = createContext<ContentContextType | undefined>(undefined);
 
 // API base URLs
-const EXERCISE_API_BASE = "/api/exercise/api/exerciseblocks";
-const MEAL_API_BASE = "/api/food/api/meals";
+const API_BASE_URL = "https://owntrainer.uz";
+const EXERCISE_API_BASE = `${API_BASE_URL}/api/exercise/api/exerciseblocks`;
+const MEAL_API_BASE = `${API_BASE_URL}/api/food/api/meals`;
 
 // Headers
 const getHeaders = () => {
@@ -204,13 +204,14 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // API function implementations
   const fetchExerciseBlocks = async () => {
     try {
-      console.log("Fetching exercise blocks");
+      console.log("Fetching exercise blocks from", EXERCISE_API_BASE);
       const response = await axios.get(EXERCISE_API_BASE, {
         headers: getHeaders()
       });
       
       if (response.status === 200) {
         const apiBlocks = response.data;
+        console.log("Received exercise blocks:", apiBlocks);
         const blocks = Array.isArray(apiBlocks) 
           ? apiBlocks.map(convertFromExerciseBlockAPI)
           : [];
@@ -250,13 +251,14 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const fetchMeals = async () => {
     try {
-      console.log("Fetching meals");
+      console.log("Fetching meals from", MEAL_API_BASE);
       const response = await axios.get(MEAL_API_BASE, {
         headers: getHeaders()
       });
       
       if (response.status === 200) {
         const apiMeals = response.data;
+        console.log("Received meals:", apiMeals);
         const mealsList = Array.isArray(apiMeals) 
           ? apiMeals.map(convertFromMealAPI)
           : [];
