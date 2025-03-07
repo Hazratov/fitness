@@ -106,8 +106,8 @@ const ContentContext = createContext<ContentContextType | undefined>(undefined);
 
 // API base URLs
 const API_BASE_URL = "https://owntrainer.uz/";
-const EXERCISE_API_BASE = `${API_BASE_URL}/api/exercise/api/exerciseblocks/`;
-const MEAL_API_BASE = `${API_BASE_URL}/api/food/api/meals/`;
+const EXERCISE_API_BASE = `${API_BASE_URL}api/exercise/api/exerciseblocks/`;
+const MEAL_API_BASE = `${API_BASE_URL}api/food/api/meals/`;
 
 // Headers
 const getHeaders = () => {
@@ -225,42 +225,21 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       if (response.status === 200) {
         const apiBlocks = response.data;
-        console.log("Received exercise blocks:", apiBlocks);
+
+
+
         const blocks = Array.isArray(apiBlocks)
           ? apiBlocks.map(convertFromExerciseBlockAPI)
           : [];
         setExerciseBlocks(blocks);
+        console.log("Received exercise blocks:", apiBlocks);
       }
     } catch (error) {
       console.error("Error fetching exercise blocks:", error);
       toast.error("Mashqlarni yuklashda xatolik yuz berdi");
 
       // Use mock data if API fails
-      setExerciseBlocks([
-        {
-          id: "1",
-          name: "Yurish mashqlari",
-          calories: 150,
-          water_intake: 500,
-          duration: 30,
-          description: "Yengil yurish yoki joggingni oqrgani uchun mashqlar",
-          block_type: "exercise",
-          steps: [
-            {
-              id: "1",
-              name: "Isitish",
-              duration: "5 - 10 daqiqa",
-              description: "Yengil yurish yoki joggingni oqrgani uchun mashqlar"
-            },
-            {
-              id: "2",
-              name: "Asosiy Mashq",
-              duration: "5 - 10 daqiqa",
-              description: "Qorin va belda yugurmasliq va orqa adela ishlatish kodingizni chiqaring"
-            }
-          ]
-        }
-      ]);
+      
     }
   };
 
@@ -314,6 +293,9 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+
+
+
   const addExerciseBlock = async (block: Omit<ExerciseBlock, "id">) => {
     try {
       const apiBlock = convertToExerciseBlockAPI(block);
@@ -349,7 +331,7 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       const apiBlock = convertToExerciseBlockAPI(block);
 
-      const response = await axios.patch(`${EXERCISE_API_BASE}/${id}/`, apiBlock, {
+      const response = await axios.put(`https://owntrainer.uz/api/exercise/api/exerciseblocks/${id}/`, apiBlock, {
         headers: getHeaders()
       });
 

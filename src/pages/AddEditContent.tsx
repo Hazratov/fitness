@@ -97,21 +97,20 @@ const AddEditContent: React.FC = () => {
     if (isEditMode && id) {
       const exerciseBlock = exerciseBlocks.find(block => block.id === id);
       const meal = meals.find(meal => meal.id === id);
-
+  
       if (exerciseBlock) {
         setContentType("mashqlar");
-        exerciseForm.reset({
-          name: exerciseBlock.name,
-          calories: exerciseBlock.calories,
-          water_intake: exerciseBlock.water_intake,
-          duration: exerciseBlock.duration,
-          description: exerciseBlock.description,
-          video_url: exerciseBlock.video_url || "",
-        });
+        exerciseForm.setValue("name", exerciseBlock.name);
+        exerciseForm.setValue("calories", exerciseBlock.calories);
+        exerciseForm.setValue("water_intake", exerciseBlock.water_intake);
+        exerciseForm.setValue("duration", exerciseBlock.duration);
+        exerciseForm.setValue("description", exerciseBlock.description);
+        exerciseForm.setValue("video_url", exerciseBlock.video_url || "");
+  
         setSteps(exerciseBlock.steps);
+  
         if (exerciseBlock.image_url) setMainImage(exerciseBlock.image_url);
-
-        // Set step images
+  
         const stepImgMap: Record<string, string> = {};
         exerciseBlock.steps.forEach(step => {
           if (step.image_url) stepImgMap[step.id] = step.image_url;
@@ -119,20 +118,21 @@ const AddEditContent: React.FC = () => {
         setStepImages(stepImgMap);
       } else if (meal) {
         setContentType("taomnnoma");
-        mealForm.reset({
-          name: meal.name,
-          calories: meal.calories,
-          water_intake: meal.water_intake,
-          preparation_time: meal.preparation_time,
-          description: meal.description,
-          video_url: meal.video_url || "",
-          meal_type: meal.meal_type || "breakfast",
-        });
+        mealForm.setValue("name", meal.name);
+        mealForm.setValue("calories", meal.calories);
+        mealForm.setValue("water_intake", meal.water_intake);
+        mealForm.setValue("preparation_time", meal.preparation_time);
+        mealForm.setValue("description", meal.description);
+        mealForm.setValue("video_url", meal.video_url || "");
+        mealForm.setValue("meal_type", meal.meal_type || "breakfast");
+  
         setSteps(meal.steps);
+  
         if (meal.image_url) setMainImage(meal.image_url);
       }
     }
-  }, [id, exerciseBlocks, meals, isEditMode]);
+  }, [id, exerciseBlocks, meals, isEditMode, exerciseForm, mealForm]);
+
 
   const handleMainImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
