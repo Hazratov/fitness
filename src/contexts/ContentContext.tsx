@@ -108,7 +108,7 @@ const MEAL_API_BASE = `${API_BASE_URL}/api/food/api/meals`;
 // Headers
 const getHeaders = () => {
   // Get the token from localStorage or another auth context
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("adminToken");
   return {
     Authorization: token ? `Bearer ${token}` : "",
     "Content-Type": "application/json",
@@ -328,7 +328,7 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       const apiBlock = convertToExerciseBlockAPI(block);
       
-      const response = await axios.put(`${EXERCISE_API_BASE}/${id}/`, apiBlock, {
+      const response = await axios.patch(`${EXERCISE_API_BASE}/${id}/`, apiBlock, {
         headers: getHeaders()
       });
       
