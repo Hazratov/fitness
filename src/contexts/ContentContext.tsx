@@ -108,7 +108,7 @@ const MEAL_API_BASE = `${API_BASE_URL}/api/food/api/meals`;
 // Headers
 const getHeaders = () => {
   // Get the token from localStorage or another auth context
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("adminToken");
   return {
     Authorization: token ? `Bearer ${token}` : "",
     "Content-Type": "application/json",
@@ -223,28 +223,7 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       
       // Use mock data if API fails
       setExerciseBlocks([
-        {
-          id: "1",
-          name: "Yurish mashqlari",
-          calories: 150,
-          water_intake: 500,
-          duration: 30,
-          description: "Yengil yurish yoki joggingni oqrgani uchun mashqlar",
-          steps: [
-            {
-              id: "1",
-              name: "Isitish",
-              duration: "5 - 10 daqiqa",
-              description: "Yengil yurish yoki joggingni oqrgani uchun mashqlar"
-            },
-            {
-              id: "2",
-              name: "Asosiy Mashq",
-              duration: "5 - 10 daqiqa",
-              description: "Qorin va belda yugurmasliq va orqa adela ishlatish kodingizni chiqaring"
-            }
-          ]
-        }
+        
       ]);
     }
   };

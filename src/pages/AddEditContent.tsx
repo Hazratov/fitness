@@ -74,7 +74,7 @@ const AddEditContent: React.FC = () => {
       name: "",
       calories: 0,
       water_intake: 0,
-      duration: 30,
+      duration: 40,
       description: "",
       video_url: "",
     },
