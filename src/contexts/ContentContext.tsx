@@ -432,7 +432,7 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
           }
         }
       );
-      
+      console.log(d)
       if (response.status === 200) {
         const updatedBlock = convertFromExerciseBlockAPI(response.data);
         const updatedStep = updatedBlock.steps.find(step => step.id === stepId);
