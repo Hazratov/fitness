@@ -374,7 +374,7 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       formData.append('block_time', currentBlock.duration.toString());
       formData.append('calories_burned', currentBlock.calories.toString());
       
-      const response = await axios.post(`${EXERCISE_API_BASE}/${id}/upload-block-image/`, formData, {
+      const response = await axios.patch(`${EXERCISE_API_BASE}/${id}/upload-block-image/`, formData, {
         headers: {
           ...getHeaders(),
           'Content-Type': 'multipart/form-data'
@@ -422,7 +422,7 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       formData.append('block_time', currentBlock.duration.toString());
       formData.append('calories_burned', currentBlock.calories.toString());
       
-      const response = await axios.post(
+      const response = await axios.patch(
         `${EXERCISE_API_BASE}/${blockId}/upload-exercise-image/${stepId}/`, 
         formData, 
         {
@@ -580,7 +580,7 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (currentMeal.description) formData.append('description', currentMeal.description);
       if (currentMeal.video_url) formData.append('video_url', currentMeal.video_url);
       
-      const response = await axios.post(`${MEAL_API_BASE}/${id}/upload-photo/`, formData, {
+      const response = await axios.patch(`${MEAL_API_BASE}/${id}/upload-photo/`, formData, {
         headers: {
           ...getHeaders(),
           'Content-Type': 'multipart/form-data'
