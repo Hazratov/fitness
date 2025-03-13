@@ -190,7 +190,7 @@ const convertToMealAPI = (meal: Partial<Meal>): Partial<MealAPI> => {
     steps: meal.steps?.map(step => ({
       title: step.title || "",
       text: step.description || "",
-      step_time: step.step_time || "5",  // Default value if not provided
+      step_time: step.step_time || "5",
       step_number: step.step_number || 1
     })) || []
   };

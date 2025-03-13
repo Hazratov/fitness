@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { 
@@ -29,11 +28,11 @@ const exerciseSchema = z.object({
 });
 
 const mealSchema = z.object({
-  name: z.string().min(3, "Kamida 3 ta belgi bo'lishi kerak"),
+  name: z.string().trim().min(3, "Kamida 3 ta belgi bo'lishi kerak"),
   calories: z.string().min(0, "Kaloriya 0 dan kam bo'lmasligi kerak"),
   water_intake: z.string().min(0, "Suv istimoli 0 dan kam bo'lmasligi kerak"),
   preparation_time: z.coerce.number().min(1, "Tayyorlash vaqti 1 daqiqadan kam bo'lmasligi kerak"),
-  description: z.string().min(10, "Kamida 10 ta belgi bo'lishi kerak"),
+  description: z.string().trim().min(10, "Kamida 10 ta belgi bo'lishi kerak"),
   video_url: z.string().optional(),
   meal_type: z.enum(["breakfast", "lunch", "snack", "dinner"]).default("breakfast"),
 });
@@ -61,6 +60,7 @@ const AddEditContent: React.FC = () => {
   const [mainImage, setMainImage] = useState<string | null>(null);
   const [stepImages, setStepImages] = useState<Record<string, string>>({});
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -75,6 +75,7 @@ const AddEditContent: React.FC = () => {
       description: "",
       video_url: "",
     },
+    mode: "onChange"
   });
 
   const mealForm = useForm<z.infer<typeof mealSchema>>({
@@ -88,6 +89,7 @@ const AddEditContent: React.FC = () => {
       video_url: "",
       meal_type: "breakfast",
     },
+    mode: "onChange"
   });
 
   // Open dialog for content type selection when adding new content
@@ -126,7 +128,7 @@ const AddEditContent: React.FC = () => {
           name: meal.name,
           calories: String(meal.calories || "0"),
           water_intake: String(meal.water_intake || "0"),
-          preparation_time: meal.preparation_time,
+          preparation_time: typeof meal.preparation_time === 'number' ? meal.preparation_time : parseInt(String(meal.preparation_time)) || 0,
           description: meal.description,
           video_url: meal.video_url || "",
           meal_type: meal.meal_type,
@@ -213,9 +215,14 @@ const AddEditContent: React.FC = () => {
 
   const onSubmit = async () => {
     try {
+      setIsSubmitting(true);
+      
       if (contentType === "mashqlar") {
         const isValid = await exerciseForm.trigger();
-        if (!isValid) return;
+        if (!isValid) {
+          setIsSubmitting(false);
+          return;
+        }
 
         const formData = exerciseForm.getValues();
         
@@ -235,7 +242,10 @@ const AddEditContent: React.FC = () => {
         }
       } else {
         const isValid = await mealForm.trigger();
-        if (!isValid) return;
+        if (!isValid) {
+          setIsSubmitting(false);
+          return;
+        }
 
         const formData = mealForm.getValues();
         
@@ -263,6 +273,8 @@ const AddEditContent: React.FC = () => {
     } catch (error) {
       toast.error("Xatolik yuz berdi");
       console.error("Error saving content:", error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -349,7 +361,7 @@ const AddEditContent: React.FC = () => {
 
           {contentType === "mashqlar" ? (
             <Form {...exerciseForm}>
-              <form className="space-y-6">
+              <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); onSubmit(); }}>
                 <div className="grid md:grid-cols-1 gap-6">
                   <FormField
                     control={exerciseForm.control}
@@ -485,7 +497,7 @@ const AddEditContent: React.FC = () => {
             </Form>
           ) : (
             <Form {...mealForm}>
-              <form className="space-y-6">
+              <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); onSubmit(); }}>
                 <div className="grid md:grid-cols-1 gap-6">
                   <FormField
                     control={mealForm.control}
@@ -606,6 +618,10 @@ const AddEditContent: React.FC = () => {
                                   type="number"
                                   className="bg-[#131c2e] border-[#2c3855] focus-visible:ring-[#3b82f6] pl-10"
                                   {...field}
+                                  onChange={(e) => {
+                                    const value = e.target.value === '' ? '0' : e.target.value;
+                                    field.onChange(parseInt(value) || 0);
+                                  }}
                                 />
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                                   <Clock size={16} />
@@ -851,10 +867,17 @@ const AddEditContent: React.FC = () => {
 
         <Button 
           onClick={onSubmit}
+          disabled={isSubmitting}
           className="w-full py-6 bg-[#2563eb] hover:bg-[#1d54cf] text-white font-medium rounded-lg flex items-center justify-center gap-2"
         >
-          <Check size={20} />
-          <span>{isEditMode ? "Saqlash va chiqib ketish" : "Yaratish va chiqib ketish"}</span>
+          {isSubmitting ? (
+            <span>Yuklanmoqda...</span>
+          ) : (
+            <>
+              <Check size={20} />
+              <span>{isEditMode ? "Saqlash va chiqib ketish" : "Yaratish va chiqib ketish"}</span>
+            </>
+          )}
         </Button>
       </div>
     </div>
