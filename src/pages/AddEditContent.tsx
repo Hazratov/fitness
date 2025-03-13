@@ -6,7 +6,7 @@ import {
   ArrowLeft, Check, Home, FileText
 } from "lucide-react";
 import { useContent, ExerciseStep, MealPreparationStep } from "@/contexts/ContentContext";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,8 +30,8 @@ const exerciseSchema = z.object({
 
 const mealSchema = z.object({
   name: z.string().min(3, "Kamida 3 ta belgi bo'lishi kerak"),
-  calories: z.coerce.number().min(0, "Kaloriya 0 dan kam bo'lmasligi kerak"),
-  water_intake: z.coerce.number().min(0, "Suv istimoli 0 dan kam bo'lmasligi kerak"),
+  calories: z.string().min(0, "Kaloriya 0 dan kam bo'lmasligi kerak"),
+  water_intake: z.string().min(0, "Suv istimoli 0 dan kam bo'lmasligi kerak"),
   preparation_time: z.coerce.number().min(1, "Tayyorlash vaqti 1 daqiqadan kam bo'lmasligi kerak"),
   description: z.string().min(10, "Kamida 10 ta belgi bo'lishi kerak"),
   video_url: z.string().optional(),
@@ -81,8 +81,8 @@ const AddEditContent: React.FC = () => {
     resolver: zodResolver(mealSchema),
     defaultValues: {
       name: "",
-      calories: 0,
-      water_intake: 0,
+      calories: "0",
+      water_intake: "0",
       preparation_time: 20,
       description: "",
       video_url: "",
@@ -107,7 +107,7 @@ const AddEditContent: React.FC = () => {
         setContentType("mashqlar");
         exerciseForm.reset({
           name: exerciseBlock.name,
-          duration: exerciseBlock.duration,
+          duration: typeof exerciseBlock.duration === 'number' ? exerciseBlock.duration : parseInt(exerciseBlock.duration as string) || 0,
           description: exerciseBlock.description,
           video_url: exerciseBlock.video_url || "",
         });
@@ -124,8 +124,8 @@ const AddEditContent: React.FC = () => {
         setContentType("taomnnoma");
         mealForm.reset({
           name: meal.name,
-          calories: meal.calories,
-          water_intake: meal.water_intake,
+          calories: String(meal.calories || "0"),
+          water_intake: String(meal.water_intake || "0"),
           preparation_time: meal.preparation_time,
           description: meal.description,
           video_url: meal.video_url || "",
@@ -298,6 +298,9 @@ const AddEditContent: React.FC = () => {
         <DialogContent className="bg-[#1a2336] border-[#2c3855] text-white max-w-lg">
           <DialogHeader>
             <DialogTitle>Kontent qo'shish</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Qo'shmoqchi bo'lgan kontent turini tanlang
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <RadioGroup 
@@ -623,7 +626,7 @@ const AddEditContent: React.FC = () => {
                             <FormControl>
                               <div className="relative">
                                 <Input 
-                                  type="number"
+                                  type="text"
                                   className="bg-[#131c2e] border-[#2c3855] focus-visible:ring-[#3b82f6] pl-10"
                                   {...field}
                                 />
@@ -646,7 +649,7 @@ const AddEditContent: React.FC = () => {
                             <FormControl>
                               <div className="relative">
                                 <Input 
-                                  type="number"
+                                  type="text"
                                   className="bg-[#131c2e] border-[#2c3855] focus-visible:ring-[#3b82f6] pl-10"
                                   {...field}
                                 />

@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "sonner";
 import axios from "axios";
@@ -15,10 +14,13 @@ export interface ExerciseStep {
 export interface ExerciseBlock {
   id: string;
   name: string;
-  duration: number;
+  duration: number | string;
   description: string;
   video_url?: string;
   image_url?: string;
+  block_kkal?: string;
+  block_water_amount?: string;
+  calories_burned?: string;
   steps: ExerciseStep[];
 }
 
@@ -33,8 +35,8 @@ export interface MealPreparationStep {
 export interface Meal {
   id: string;
   name: string;
-  calories: number;
-  water_intake: number;
+  calories: string | number;
+  water_intake: string | number;
   preparation_time: number;
   description: string;
   image_url?: string;
@@ -50,6 +52,9 @@ interface ExerciseBlockAPI {
   description: string;
   video_url?: string;
   block_time: string;
+  block_kkal?: string;
+  block_water_amount?: string;
+  calories_burned?: string;
   exercises: {
     id?: string | number;
     name: string;
@@ -118,9 +123,12 @@ const convertFromExerciseBlockAPI = (apiBlock: ExerciseBlockAPI): ExerciseBlock 
   return {
     id: String(apiBlock.id),
     name: apiBlock.block_name,
-    duration: typeof apiBlock.block_time === 'number' ? apiBlock.block_time : parseInt(apiBlock.block_time) || 0,
+    duration: apiBlock.block_time || "0",
     description: apiBlock.description,
     video_url: apiBlock.video_url,
+    block_kkal: apiBlock.block_kkal,
+    block_water_amount: apiBlock.block_water_amount,
+    calories_burned: apiBlock.calories_burned,
     image_url: apiBlock.block_image_url,
     steps: apiBlock.exercises.map(exercise => ({
       id: String(exercise.id),
@@ -137,7 +145,10 @@ const convertToExerciseBlockAPI = (block: Partial<ExerciseBlock>): Partial<Exerc
     block_name: block.name,
     description: block.description,
     video_url: block.video_url,
-    block_time: block.duration?.toString() || "0",
+    block_time: String(block.duration || "0"),
+    block_kkal: block.block_kkal,
+    block_water_amount: block.block_water_amount,
+    calories_burned: block.calories_burned,
     exercises: block.steps?.map(step => ({
       name: step.name,
       exercise_time: step.duration,
@@ -150,8 +161,8 @@ const convertFromMealAPI = (apiMeal: MealAPI): Meal => {
   return {
     id: String(apiMeal.id),
     name: apiMeal.food_name,
-    calories: parseFloat(apiMeal.calories) || 0,
-    water_intake: parseFloat(apiMeal.water_content) || 0,
+    calories: apiMeal.calories || "0",
+    water_intake: apiMeal.water_content || "0",
     preparation_time: apiMeal.preparation_time,
     description: apiMeal.description || "",
     video_url: apiMeal.video_url,
@@ -170,18 +181,18 @@ const convertFromMealAPI = (apiMeal: MealAPI): Meal => {
 const convertToMealAPI = (meal: Partial<Meal>): Partial<MealAPI> => {
   return {
     meal_type: meal.meal_type || "breakfast",
-    food_name: meal.name,
-    calories: meal.calories?.toString(),
-    water_content: meal.water_intake?.toString(),
-    preparation_time: meal.preparation_time,
+    food_name: meal.name || "",
+    calories: String(meal.calories || "0"),
+    water_content: String(meal.water_intake || "0"),
+    preparation_time: Number(meal.preparation_time || 0),
     description: meal.description,
     video_url: meal.video_url,
     steps: meal.steps?.map(step => ({
       title: step.title || "",
-      text: step.description,
+      text: step.description || "",
       step_time: step.step_time || "5",  // Default value if not provided
       step_number: step.step_number || 1
-    }))
+    })) || []
   };
 };
 
@@ -244,8 +255,8 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
         {
           id: "1",
           name: "Avokado va tuxumli buterbrod",
-          calories: 1800,
-          water_intake: 300,
+          calories: "1800",
+          water_intake: "300",
           preparation_time: 20,
           description: "Bu yengil taom tavsifi",
           meal_type: "breakfast",
