@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { 
@@ -22,8 +23,6 @@ type ContentType = "mashqlar" | "taomnnoma";
 // Form validation schemas
 const exerciseSchema = z.object({
   name: z.string().min(3, "Kamida 3 ta belgi bo'lishi kerak"),
-  calories: z.coerce.number().min(0, "Kaloriya 0 dan kam bo'lmasligi kerak"),
-  water_intake: z.coerce.number().min(0, "Suv istimoli 0 dan kam bo'lmasligi kerak"),
   duration: z.coerce.number().min(1, "Davomiyligi 1 daqiqadan kam bo'lmasligi kerak"),
   description: z.string().min(10, "Kamida 10 ta belgi bo'lishi kerak"),
   video_url: z.string().optional(),
@@ -72,8 +71,6 @@ const AddEditContent: React.FC = () => {
     resolver: zodResolver(exerciseSchema),
     defaultValues: {
       name: "",
-      calories: 0,
-      water_intake: 0,
       duration: 40,
       description: "",
       video_url: "",
@@ -93,6 +90,14 @@ const AddEditContent: React.FC = () => {
     },
   });
 
+  // Open dialog for content type selection when adding new content
+  useEffect(() => {
+    if (!isEditMode) {
+      setIsDialogOpen(true);
+    }
+  }, [isEditMode]);
+
+  // Load existing data for editing
   useEffect(() => {
     if (isEditMode && id) {
       const exerciseBlock = exerciseBlocks.find(block => block.id === id);
@@ -102,8 +107,6 @@ const AddEditContent: React.FC = () => {
         setContentType("mashqlar");
         exerciseForm.reset({
           name: exerciseBlock.name,
-          calories: exerciseBlock.calories,
-          water_intake: exerciseBlock.water_intake,
           duration: exerciseBlock.duration,
           description: exerciseBlock.description,
           video_url: exerciseBlock.video_url || "",
@@ -126,13 +129,13 @@ const AddEditContent: React.FC = () => {
           preparation_time: meal.preparation_time,
           description: meal.description,
           video_url: meal.video_url || "",
-          meal_type: meal.meal_type || "breakfast",
+          meal_type: meal.meal_type,
         });
         setSteps(meal.steps);
         if (meal.image_url) setMainImage(meal.image_url);
       }
     }
-  }, [id, exerciseBlocks, meals, isEditMode]);
+  }, [id, exerciseBlocks, meals, isEditMode, exerciseForm, mealForm]);
 
   const handleMainImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -183,6 +186,9 @@ const AddEditContent: React.FC = () => {
       const newStep: MealPreparationStep = {
         id: newStepId,
         description: "",
+        title: "",
+        step_time: "5",
+        step_number: steps.length + 1,
       };
       setSteps(prev => [...prev, newStep]);
     }
@@ -215,8 +221,6 @@ const AddEditContent: React.FC = () => {
         
         const exerciseData = {
           name: formData.name,
-          calories: formData.calories,
-          water_intake: formData.water_intake,
           duration: formData.duration,
           description: formData.description,
           video_url: formData.video_url,
@@ -343,7 +347,7 @@ const AddEditContent: React.FC = () => {
           {contentType === "mashqlar" ? (
             <Form {...exerciseForm}>
               <form className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid md:grid-cols-1 gap-6">
                   <FormField
                     control={exerciseForm.control}
                     name="name"
@@ -361,21 +365,6 @@ const AddEditContent: React.FC = () => {
                       </FormItem>
                     )}
                   />
-
-                  {/* Category selection - placeholder for now */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Kategoriyalar</label>
-                    <div className="relative">
-                      <Input 
-                        type="text" 
-                        placeholder="Yurish mashqlari"
-                        className="bg-[#131c2e] border-[#2c3855] focus-visible:ring-[#3b82f6] pl-10"
-                      />
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2">
-                        <div className="bg-[#3b82f6] w-5 h-5 rounded-full" />
-                      </span>
-                    </div>
-                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -465,76 +454,28 @@ const AddEditContent: React.FC = () => {
                       )}
                     />
 
-                    <div className="grid grid-cols-3 gap-4">
-                      <FormField
-                        control={exerciseForm.control}
-                        name="duration"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Vaqti (daq)</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <Input 
-                                  type="number"
-                                  className="bg-[#131c2e] border-[#2c3855] focus-visible:ring-[#3b82f6] pl-10"
-                                  {...field}
-                                />
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                  <Clock size={16} />
-                                </span>
-                              </div>
-                            </FormControl>
-                            <FormMessage className="text-red-400" />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={exerciseForm.control}
-                        name="calories"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Kaloriya</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <Input 
-                                  type="number"
-                                  className="bg-[#131c2e] border-[#2c3855] focus-visible:ring-[#3b82f6] pl-10"
-                                  {...field}
-                                />
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                  <Flame size={16} />
-                                </span>
-                              </div>
-                            </FormControl>
-                            <FormMessage className="text-red-400" />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={exerciseForm.control}
-                        name="water_intake"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Suv (ml)</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <Input 
-                                  type="number"
-                                  className="bg-[#131c2e] border-[#2c3855] focus-visible:ring-[#3b82f6] pl-10"
-                                  {...field}
-                                />
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                  <Droplets size={16} />
-                                </span>
-                              </div>
-                            </FormControl>
-                            <FormMessage className="text-red-400" />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                    <FormField
+                      control={exerciseForm.control}
+                      name="duration"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Vaqti (daq)</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Input 
+                                type="number"
+                                className="bg-[#131c2e] border-[#2c3855] focus-visible:ring-[#3b82f6] pl-10"
+                                {...field}
+                              />
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                                <Clock size={16} />
+                              </span>
+                            </div>
+                          </FormControl>
+                          <FormMessage className="text-red-400" />
+                        </FormItem>
+                      )}
+                    />
                   </div>
                 </div>
               </form>
@@ -542,7 +483,7 @@ const AddEditContent: React.FC = () => {
           ) : (
             <Form {...mealForm}>
               <form className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid md:grid-cols-1 gap-6">
                   <FormField
                     control={mealForm.control}
                     name="name"
@@ -560,21 +501,6 @@ const AddEditContent: React.FC = () => {
                       </FormItem>
                     )}
                   />
-
-                  {/* Category selection - placeholder for now */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Kategoriyalar</label>
-                    <div className="relative">
-                      <Input 
-                        type="text" 
-                        placeholder="Nonushtalar"
-                        className="bg-[#131c2e] border-[#2c3855] focus-visible:ring-[#3b82f6] pl-10"
-                      />
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2">
-                        <div className="bg-[#10b981] w-5 h-5 rounded-full" />
-                      </span>
-                    </div>
-                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -805,6 +731,32 @@ const AddEditContent: React.FC = () => {
                             className="bg-[#1a2336] border-[#2c3855] focus-visible:ring-[#3b82f6]"
                             value={(step as ExerciseStep).duration || ""}
                             onChange={(e) => updateStep(step.id, { duration: e.target.value })}
+                          />
+                        </div>
+                      )}
+
+                      {contentType === "taomnnoma" && (
+                        <div>
+                          <label className="block text-sm font-medium mb-2">Qadam sarlavhasi</label>
+                          <Input 
+                            type="text" 
+                            placeholder="Tayyorgarlik"
+                            className="bg-[#1a2336] border-[#2c3855] focus-visible:ring-[#3b82f6]"
+                            value={(step as MealPreparationStep).title || ""}
+                            onChange={(e) => updateStep(step.id, { title: e.target.value })}
+                          />
+                        </div>
+                      )}
+
+                      {contentType === "taomnnoma" && (
+                        <div>
+                          <label className="block text-sm font-medium mb-2">Qadam vaqti (daqiqa)</label>
+                          <Input 
+                            type="text" 
+                            placeholder="5"
+                            className="bg-[#1a2336] border-[#2c3855] focus-visible:ring-[#3b82f6]"
+                            value={(step as MealPreparationStep).step_time || ""}
+                            onChange={(e) => updateStep(step.id, { step_time: e.target.value })}
                           />
                         </div>
                       )}

@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "sonner";
 import axios from "axios";
@@ -14,8 +15,6 @@ export interface ExerciseStep {
 export interface ExerciseBlock {
   id: string;
   name: string;
-  calories: number;
-  water_intake: number;
   duration: number;
   description: string;
   video_url?: string;
@@ -41,19 +40,16 @@ export interface Meal {
   image_url?: string;
   video_url?: string;
   steps: MealPreparationStep[];
-  meal_type?: "breakfast" | "lunch" | "snack" | "dinner";
+  meal_type: "breakfast" | "lunch" | "snack" | "dinner";
 }
 
 // API types that match the backend requirements
 interface ExerciseBlockAPI {
   id?: string | number;
   block_name: string;
-  block_kkal: string;
-  block_water_amount: string;
   description: string;
   video_url?: string;
-  block_time: number;
-  calories_burned: string;
+  block_time: string;
   exercises: {
     id?: string | number;
     name: string;
@@ -80,6 +76,7 @@ interface MealAPI {
     step_time: string;
     step_number: number;
   }[];
+  food_photo?: string;
 }
 
 interface ContentContextType {
@@ -103,6 +100,7 @@ const ContentContext = createContext<ContentContextType | undefined>(undefined);
 // API base URLs
 const API_BASE_URL = "https://owntrainer.uz";
 const EXERCISE_API_BASE = `${API_BASE_URL}/api/exercise/api/exerciseblocks`;
+const EXERCISE_STEP_API_BASE = `${API_BASE_URL}/api/exercise/api/exercises`;
 const MEAL_API_BASE = `${API_BASE_URL}/api/food/api/meals`;
 
 // Headers
@@ -120,9 +118,7 @@ const convertFromExerciseBlockAPI = (apiBlock: ExerciseBlockAPI): ExerciseBlock 
   return {
     id: String(apiBlock.id),
     name: apiBlock.block_name,
-    calories: parseFloat(apiBlock.block_kkal),
-    water_intake: parseFloat(apiBlock.block_water_amount),
-    duration: apiBlock.block_time,
+    duration: typeof apiBlock.block_time === 'number' ? apiBlock.block_time : parseInt(apiBlock.block_time) || 0,
     description: apiBlock.description,
     video_url: apiBlock.video_url,
     image_url: apiBlock.block_image_url,
@@ -139,12 +135,9 @@ const convertFromExerciseBlockAPI = (apiBlock: ExerciseBlockAPI): ExerciseBlock 
 const convertToExerciseBlockAPI = (block: Partial<ExerciseBlock>): Partial<ExerciseBlockAPI> => {
   return {
     block_name: block.name,
-    block_kkal: block.calories?.toString(),
-    block_water_amount: block.water_intake?.toString(),
     description: block.description,
     video_url: block.video_url,
-    block_time: block.duration,
-    calories_burned: block.calories?.toString(),
+    block_time: block.duration?.toString() || "0",
     exercises: block.steps?.map(step => ({
       name: step.name,
       exercise_time: step.duration,
@@ -157,12 +150,13 @@ const convertFromMealAPI = (apiMeal: MealAPI): Meal => {
   return {
     id: String(apiMeal.id),
     name: apiMeal.food_name,
-    calories: parseFloat(apiMeal.calories),
-    water_intake: parseFloat(apiMeal.water_content),
+    calories: parseFloat(apiMeal.calories) || 0,
+    water_intake: parseFloat(apiMeal.water_content) || 0,
     preparation_time: apiMeal.preparation_time,
     description: apiMeal.description || "",
     video_url: apiMeal.video_url,
     meal_type: apiMeal.meal_type,
+    image_url: apiMeal.food_photo,
     steps: apiMeal.steps.map(step => ({
       id: String(step.id),
       title: step.title,
@@ -185,7 +179,7 @@ const convertToMealAPI = (meal: Partial<Meal>): Partial<MealAPI> => {
     steps: meal.steps?.map(step => ({
       title: step.title || "",
       text: step.description,
-      step_time: "5",  // Default value if not provided
+      step_time: step.step_time || "5",  // Default value if not provided
       step_number: step.step_number || 1
     }))
   };
@@ -195,7 +189,7 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [exerciseBlocks, setExerciseBlocks] = useState<ExerciseBlock[]>([]);
   const [meals, setMeals] = useState<Meal[]>([]);
 
-  // Load mock data initially (will be replaced with API data)
+  // Load initial data
   useEffect(() => {
     fetchExerciseBlocks();
     fetchMeals();
@@ -222,9 +216,7 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       toast.error("Mashqlarni yuklashda xatolik yuz berdi");
       
       // Use mock data if API fails
-      setExerciseBlocks([
-        
-      ]);
+      setExerciseBlocks([]);
     }
   };
 
@@ -255,7 +247,7 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
           calories: 1800,
           water_intake: 300,
           preparation_time: 20,
-          description: "Bu yengil taomif tavsifi",
+          description: "Bu yengil taom tavsifi",
           meal_type: "breakfast",
           steps: [
             {
@@ -361,19 +353,6 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const formData = new FormData();
       formData.append('block_image', file);
       
-      // Get the current block to include required fields
-      const currentBlock = exerciseBlocks.find(block => block.id === id);
-      if (!currentBlock) throw new Error("Block not found");
-      
-      // Add required fields to formData
-      formData.append('block_name', currentBlock.name);
-      formData.append('block_kkal', currentBlock.calories.toString());
-      formData.append('block_water_amount', currentBlock.water_intake.toString());
-      if (currentBlock.description) formData.append('description', currentBlock.description);
-      if (currentBlock.video_url) formData.append('video_url', currentBlock.video_url);
-      formData.append('block_time', currentBlock.duration.toString());
-      formData.append('calories_burned', currentBlock.calories.toString());
-      
       const response = await axios.patch(`${EXERCISE_API_BASE}/${id}/upload-block-image/`, formData, {
         headers: {
           ...getHeaders(),
@@ -409,21 +388,8 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const formData = new FormData();
       formData.append('image', file);
       
-      // Get the current block to include required fields
-      const currentBlock = exerciseBlocks.find(block => block.id === blockId);
-      if (!currentBlock) throw new Error("Block not found");
-      
-      // Add required fields to formData
-      formData.append('block_name', currentBlock.name);
-      formData.append('block_kkal', currentBlock.calories.toString());
-      formData.append('block_water_amount', currentBlock.water_intake.toString());
-      if (currentBlock.description) formData.append('description', currentBlock.description);
-      if (currentBlock.video_url) formData.append('video_url', currentBlock.video_url);
-      formData.append('block_time', currentBlock.duration.toString());
-      formData.append('calories_burned', currentBlock.calories.toString());
-      
       const response = await axios.patch(
-        `${EXERCISE_API_BASE}/${blockId}/upload-exercise-image/${stepId}/`, 
+        `${EXERCISE_STEP_API_BASE}/${stepId}/upload-image/`, 
         formData, 
         {
           headers: {
@@ -432,10 +398,10 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
           }
         }
       );
-      console.log(d)
+      
       if (response.status === 200) {
-        const updatedBlock = convertFromExerciseBlockAPI(response.data);
-        const updatedStep = updatedBlock.steps.find(step => step.id === stepId);
+        const updatedStepData = response.data;
+        const imageUrl = updatedStepData.image_url;
         
         setExerciseBlocks(prev => 
           prev.map(block => {
@@ -443,7 +409,7 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
               return {
                 ...block,
                 steps: block.steps.map(step => 
-                  step.id === stepId ? { ...step, image_url: updatedStep?.image_url } : step
+                  step.id === stepId ? { ...step, image_url: imageUrl } : step
                 )
               };
             }
@@ -566,19 +532,6 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       const formData = new FormData();
       formData.append('food_photo', file);
-      
-      // Get the current meal to include required fields
-      const currentMeal = meals.find(meal => meal.id === id);
-      if (!currentMeal) throw new Error("Meal not found");
-      
-      // Add required fields to formData
-      formData.append('meal_type', currentMeal.meal_type || 'breakfast');
-      formData.append('food_name', currentMeal.name);
-      formData.append('calories', currentMeal.calories.toString());
-      formData.append('water_content', currentMeal.water_intake.toString());
-      formData.append('preparation_time', currentMeal.preparation_time.toString());
-      if (currentMeal.description) formData.append('description', currentMeal.description);
-      if (currentMeal.video_url) formData.append('video_url', currentMeal.video_url);
       
       const response = await axios.patch(`${MEAL_API_BASE}/${id}/upload-photo/`, formData, {
         headers: {
