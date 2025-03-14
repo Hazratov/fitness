@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { MealPreparationStep } from "@/contexts/ContentContext";
 import { toast } from "sonner";
-import { useContent } from "@/contexts/ContentContext";
 
 interface MealStepsProps {
   mealId?: string;
@@ -16,27 +15,14 @@ interface MealStepsProps {
 }
 
 const MealSteps: React.FC<MealStepsProps> = ({
-  mealId,
   steps,
   onAddStep,
   onUpdateStep,
   onRemoveStep
 }) => {
-  const { updateMealStep } = useContent();
-
-  const handleUpdateStep = async (id: string, data: Partial<MealPreparationStep>) => {
-    // Update local state immediately for responsive UI
+  // Only update local state without API calls
+  const handleUpdateStep = (id: string, data: Partial<MealPreparationStep>) => {
     onUpdateStep(id, data);
-    
-    // If we're in edit mode and have a mealId, sync with backend
-    if (mealId) {
-      try {
-        await updateMealStep(id, data);
-      } catch (error) {
-        console.error("Failed to update meal step on server:", error);
-        toast.error("Taom tayyorlash qadami yangilanmadi, qayta urinib ko'ring");
-      }
-    }
   };
 
   return (

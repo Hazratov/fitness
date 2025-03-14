@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Plus, ArrowLeft, Check, Home, FileText } from "lucide-react";
@@ -32,7 +33,9 @@ const AddEditContent: React.FC = () => {
     updateMeal,
     uploadMealImage,
     createExerciseStep,
-    createMealStep
+    createMealStep,
+    updateExerciseStep,
+    updateMealStep
   } = useContent();
 
   // State
@@ -42,6 +45,8 @@ const AddEditContent: React.FC = () => {
   const [stepImages, setStepImages] = useState<Record<string, string>>({});
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [modifiedSteps, setModifiedSteps] = useState<Set<string>>(new Set());
+  const [serverSteps, setServerSteps] = useState<Record<string, boolean>>({});
 
   // Forms
   const exerciseForm = useForm<ExerciseFormValues>({
@@ -95,10 +100,14 @@ const AddEditContent: React.FC = () => {
 
         // Set step images
         const stepImgMap: Record<string, string> = {};
+        const serverStepsMap: Record<string, boolean> = {};
         exerciseBlock.steps.forEach(step => {
           if (step.image_url) stepImgMap[step.id] = step.image_url;
+          // Mark steps that exist on the server
+          serverStepsMap[step.id] = true;
         });
         setStepImages(stepImgMap);
+        setServerSteps(serverStepsMap);
       } else if (meal) {
         setContentType("taomnnoma");
         mealForm.reset({
@@ -112,6 +121,13 @@ const AddEditContent: React.FC = () => {
         });
         setSteps(meal.steps);
         if (meal.image_url) setMainImage(meal.image_url);
+        
+        // Mark steps that exist on the server
+        const serverStepsMap: Record<string, boolean> = {};
+        meal.steps.forEach(step => {
+          serverStepsMap[step.id] = true;
+        });
+        setServerSteps(serverStepsMap);
       }
     }
   }, [id, exerciseBlocks, meals, isEditMode, exerciseForm, mealForm]);
@@ -151,6 +167,10 @@ const AddEditContent: React.FC = () => {
     };
     reader.readAsDataURL(file);
 
+    // Mark the step as modified
+    setModifiedSteps(prev => new Set(prev).add(stepId));
+
+    // Images are still uploaded immediately since they require a different API
     if (isEditMode && id && contentType === "mashqlar") {
       uploadExerciseStepImage(id, stepId, file);
     }
@@ -174,6 +194,9 @@ const AddEditContent: React.FC = () => {
           ...newStepData
         };
         setSteps(prev => [...prev, newStep]);
+        
+        // Mark as existing on server
+        setServerSteps(prev => ({...prev, [newStepId]: true}));
       } else {
         const newStepData: Omit<MealPreparationStep, "id"> = {
           description: "",
@@ -191,6 +214,9 @@ const AddEditContent: React.FC = () => {
           ...newStepData
         };
         setSteps(prev => [...prev, newStep]);
+        
+        // Mark as existing on server
+        setServerSteps(prev => ({...prev, [newStepId]: true}));
       }
     } else {
       // If we're in create mode, just create steps locally
@@ -218,9 +244,15 @@ const AddEditContent: React.FC = () => {
   };
 
   const updateStep = (id: string, data: Partial<ExerciseStep | MealPreparationStep>) => {
+    // Only update local state, mark step as modified for later server update
     setSteps(prev =>
       prev.map(step => (step.id === id ? { ...step, ...data } : step))
     );
+    
+    // Add to modified steps set if it exists on server
+    if (serverSteps[id]) {
+      setModifiedSteps(prev => new Set(prev).add(id));
+    }
   };
 
   const removeStep = (id: string) => {
@@ -231,6 +263,50 @@ const AddEditContent: React.FC = () => {
       const newStepImages = { ...stepImages };
       delete newStepImages[id];
       setStepImages(newStepImages);
+    }
+  };
+
+  // Update all modified steps on the server
+  const updateModifiedStepsOnServer = async () => {
+    if (!isEditMode || !id) return;
+    
+    const promises = [];
+    
+    for (const stepId of modifiedSteps) {
+      const step = steps.find(s => s.id === stepId);
+      if (!step) continue;
+      
+      if (contentType === "mashqlar") {
+        const exerciseStep = step as ExerciseStep;
+        promises.push(
+          updateExerciseStep(stepId, {
+            name: exerciseStep.name,
+            duration: exerciseStep.duration,
+            description: exerciseStep.description
+          })
+        );
+      } else {
+        const mealStep = step as MealPreparationStep;
+        promises.push(
+          updateMealStep(stepId, {
+            title: mealStep.title || "", // Ensure title is never empty as API requires it
+            description: mealStep.description,
+            step_time: mealStep.step_time,
+            step_number: mealStep.step_number
+          })
+        );
+      }
+    }
+    
+    if (promises.length > 0) {
+      try {
+        await Promise.all(promises);
+        // Clear modified steps after successful update
+        setModifiedSteps(new Set());
+      } catch (error) {
+        console.error("Error updating steps:", error);
+        toast.error("Ba'zi qadamlarni yangilashda xatolik yuz berdi");
+      }
     }
   };
 
@@ -257,8 +333,12 @@ const AddEditContent: React.FC = () => {
         };
 
         if (isEditMode && id) {
+          // First update the main exercise block
           await updateExerciseBlock(id, exerciseData);
+          // Then update any modified steps
+          await updateModifiedStepsOnServer();
         } else {
+          // For new content, the steps will be created as part of the block
           await addExerciseBlock(exerciseData);
         }
       } else {
@@ -283,8 +363,12 @@ const AddEditContent: React.FC = () => {
         };
 
         if (isEditMode && id) {
+          // First update the main meal
           await updateMeal(id, mealData);
+          // Then update any modified steps
+          await updateModifiedStepsOnServer();
         } else {
+          // For new content, the steps will be created as part of the meal
           await addMeal(mealData);
         }
       }
