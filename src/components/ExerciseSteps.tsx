@@ -4,8 +4,11 @@ import { Upload, X, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ExerciseStep } from "@/contexts/ContentContext";
+import { toast } from "sonner";
+import { useContent } from "@/contexts/ContentContext";
 
 interface ExerciseStepsProps {
+  blockId?: string;
   steps: ExerciseStep[];
   stepImages: Record<string, string>;
   onAddStep: () => void;
@@ -15,6 +18,7 @@ interface ExerciseStepsProps {
 }
 
 const ExerciseSteps: React.FC<ExerciseStepsProps> = ({
+  blockId,
   steps,
   stepImages,
   onAddStep,
@@ -23,6 +27,22 @@ const ExerciseSteps: React.FC<ExerciseStepsProps> = ({
   onStepImageUpload
 }) => {
   const stepFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const { updateExerciseStep } = useContent();
+  
+  const handleUpdateStep = async (id: string, data: Partial<ExerciseStep>) => {
+    // Update local state immediately for responsive UI
+    onUpdateStep(id, data);
+    
+    // If we're in edit mode and have a blockId, sync with backend
+    if (blockId) {
+      try {
+        await updateExerciseStep(id, data);
+      } catch (error) {
+        console.error("Failed to update step on server:", error);
+        toast.error("Qadam yangilanmadi, qayta urinib ko'ring");
+      }
+    }
+  };
   
   return (
     <div className="space-y-6">
@@ -45,7 +65,7 @@ const ExerciseSteps: React.FC<ExerciseStepsProps> = ({
                     placeholder="Isitish"
                     className="bg-[#1a2336] border-[#2c3855] focus-visible:ring-[#3b82f6]"
                     value={step.name || ""}
-                    onChange={(e) => onUpdateStep(step.id, { name: e.target.value })}
+                    onChange={(e) => handleUpdateStep(step.id, { name: e.target.value })}
                   />
                 </div>
                 <div>
@@ -55,7 +75,7 @@ const ExerciseSteps: React.FC<ExerciseStepsProps> = ({
                     placeholder="5 - 10 daqiqa"
                     className="bg-[#1a2336] border-[#2c3855] focus-visible:ring-[#3b82f6]"
                     value={step.duration || ""}
-                    onChange={(e) => onUpdateStep(step.id, { duration: e.target.value })}
+                    onChange={(e) => handleUpdateStep(step.id, { duration: e.target.value })}
                   />
                 </div>
               </div>
@@ -66,7 +86,7 @@ const ExerciseSteps: React.FC<ExerciseStepsProps> = ({
                   placeholder="Yengil yurish yoki joggingni oqrgani uchun mashqlar"
                   className="bg-[#1a2336] border-[#2c3855] focus-visible:ring-[#3b82f6] h-16"
                   value={step.description || ""}
-                  onChange={(e) => onUpdateStep(step.id, { description: e.target.value })}
+                  onChange={(e) => handleUpdateStep(step.id, { description: e.target.value })}
                 />
               </div>
 

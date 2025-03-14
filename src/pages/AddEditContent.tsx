@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Plus, ArrowLeft, Check, Home, FileText } from "lucide-react";
@@ -31,7 +30,9 @@ const AddEditContent: React.FC = () => {
     uploadExerciseStepImage,
     addMeal,
     updateMeal,
-    uploadMealImage
+    uploadMealImage,
+    createExerciseStep,
+    createMealStep
   } = useContent();
 
   // State
@@ -155,26 +156,64 @@ const AddEditContent: React.FC = () => {
     }
   };
 
-  const addStep = () => {
-    const newStepId = crypto.randomUUID();
-    
-    if (contentType === "mashqlar") {
-      const newStep: ExerciseStep = {
-        id: newStepId,
-        name: "",
-        duration: "5 - 10 daqiqa",
-        description: "",
-      };
-      setSteps(prev => [...prev, newStep]);
+  const addStep = async () => {
+    if (isEditMode && id) {
+      if (contentType === "mashqlar") {
+        const newStepData: Omit<ExerciseStep, "id"> = {
+          name: "",
+          duration: "5 - 10 daqiqa",
+          description: "",
+        };
+        
+        // Create the step on the server and get back the ID
+        const newStepId = await createExerciseStep(id, newStepData);
+        
+        // Add to local state with the returned ID
+        const newStep: ExerciseStep = {
+          id: newStepId,
+          ...newStepData
+        };
+        setSteps(prev => [...prev, newStep]);
+      } else {
+        const newStepData: Omit<MealPreparationStep, "id"> = {
+          description: "",
+          title: "",
+          step_time: "5",
+          step_number: steps.length + 1,
+        };
+        
+        // Create the step on the server and get back the ID
+        const newStepId = await createMealStep(id, newStepData);
+        
+        // Add to local state with the returned ID
+        const newStep: MealPreparationStep = {
+          id: newStepId,
+          ...newStepData
+        };
+        setSteps(prev => [...prev, newStep]);
+      }
     } else {
-      const newStep: MealPreparationStep = {
-        id: newStepId,
-        description: "",
-        title: "",
-        step_time: "5",
-        step_number: steps.length + 1,
-      };
-      setSteps(prev => [...prev, newStep]);
+      // If we're in create mode, just create steps locally
+      const newStepId = crypto.randomUUID();
+      
+      if (contentType === "mashqlar") {
+        const newStep: ExerciseStep = {
+          id: newStepId,
+          name: "",
+          duration: "5 - 10 daqiqa",
+          description: "",
+        };
+        setSteps(prev => [...prev, newStep]);
+      } else {
+        const newStep: MealPreparationStep = {
+          id: newStepId,
+          description: "",
+          title: "",
+          step_time: "5",
+          step_number: steps.length + 1,
+        };
+        setSteps(prev => [...prev, newStep]);
+      }
     }
   };
 
@@ -340,6 +379,7 @@ const AddEditContent: React.FC = () => {
 
           {contentType === "mashqlar" ? (
             <ExerciseSteps 
+              blockId={isEditMode ? id : undefined}
               steps={steps as ExerciseStep[]}
               stepImages={stepImages}
               onAddStep={addStep}
@@ -349,6 +389,7 @@ const AddEditContent: React.FC = () => {
             />
           ) : (
             <MealSteps 
+              mealId={isEditMode ? id : undefined}
               steps={steps as MealPreparationStep[]}
               onAddStep={addStep}
               onUpdateStep={updateStep}

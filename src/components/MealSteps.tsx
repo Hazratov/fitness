@@ -4,8 +4,11 @@ import { X, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { MealPreparationStep } from "@/contexts/ContentContext";
+import { toast } from "sonner";
+import { useContent } from "@/contexts/ContentContext";
 
 interface MealStepsProps {
+  mealId?: string;
   steps: MealPreparationStep[];
   onAddStep: () => void;
   onUpdateStep: (id: string, data: Partial<MealPreparationStep>) => void;
@@ -13,11 +16,29 @@ interface MealStepsProps {
 }
 
 const MealSteps: React.FC<MealStepsProps> = ({
+  mealId,
   steps,
   onAddStep,
   onUpdateStep,
   onRemoveStep
 }) => {
+  const { updateMealStep } = useContent();
+
+  const handleUpdateStep = async (id: string, data: Partial<MealPreparationStep>) => {
+    // Update local state immediately for responsive UI
+    onUpdateStep(id, data);
+    
+    // If we're in edit mode and have a mealId, sync with backend
+    if (mealId) {
+      try {
+        await updateMealStep(id, data);
+      } catch (error) {
+        console.error("Failed to update meal step on server:", error);
+        toast.error("Taom tayyorlash qadami yangilanmadi, qayta urinib ko'ring");
+      }
+    }
+  };
+
   return (
     <div className="space-y-6">
       {steps.map((step, index) => (
@@ -39,7 +60,7 @@ const MealSteps: React.FC<MealStepsProps> = ({
                     placeholder="Tayyorgarlik"
                     className="bg-[#1a2336] border-[#2c3855] focus-visible:ring-[#3b82f6]"
                     value={step.title || ""}
-                    onChange={(e) => onUpdateStep(step.id, { title: e.target.value })}
+                    onChange={(e) => handleUpdateStep(step.id, { title: e.target.value })}
                   />
                 </div>
                 <div>
@@ -49,7 +70,7 @@ const MealSteps: React.FC<MealStepsProps> = ({
                     placeholder="5"
                     className="bg-[#1a2336] border-[#2c3855] focus-visible:ring-[#3b82f6]"
                     value={step.step_time || ""}
-                    onChange={(e) => onUpdateStep(step.id, { step_time: e.target.value })}
+                    onChange={(e) => handleUpdateStep(step.id, { step_time: e.target.value })}
                   />
                 </div>
               </div>
@@ -60,7 +81,7 @@ const MealSteps: React.FC<MealStepsProps> = ({
                   placeholder="Tuxumlarni suvda qaynatring yoki pishiring qiling"
                   className="bg-[#1a2336] border-[#2c3855] focus-visible:ring-[#3b82f6] h-16"
                   value={step.description || ""}
-                  onChange={(e) => onUpdateStep(step.id, { description: e.target.value })}
+                  onChange={(e) => handleUpdateStep(step.id, { description: e.target.value })}
                 />
               </div>
             </div>

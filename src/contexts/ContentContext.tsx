@@ -65,6 +65,22 @@ interface ExerciseBlockAPI {
   block_image_url?: string;
 }
 
+interface ExerciseStepAPI {
+  id?: string | number;
+  name: string;
+  exercise_time: string;
+  description: string;
+  image_url?: string;
+}
+
+interface MealStepAPI {
+  id?: string | number;
+  title: string;
+  text: string;
+  step_time: string;
+  step_number: number;
+}
+
 interface MealAPI {
   id?: string | number;
   meal_type: "breakfast" | "lunch" | "snack" | "dinner";
@@ -74,13 +90,7 @@ interface MealAPI {
   preparation_time: number;
   description?: string;
   video_url?: string;
-  steps: {
-    id?: string | number;
-    title: string;
-    text: string;
-    step_time: string;
-    step_number: number;
-  }[];
+  steps: MealStepAPI[];
   food_photo?: string;
 }
 
@@ -98,6 +108,10 @@ interface ContentContextType {
   updateMeal: (id: string, meal: Partial<Meal>) => Promise<void>;
   deleteMeal: (id: string) => Promise<void>;
   uploadMealImage: (id: string, file: File) => Promise<void>;
+  updateExerciseStep: (stepId: string, data: Partial<ExerciseStep>) => Promise<void>;
+  createExerciseStep: (blockId: string, step: Omit<ExerciseStep, "id">) => Promise<string>;
+  updateMealStep: (stepId: string, data: Partial<MealPreparationStep>) => Promise<void>;
+  createMealStep: (mealId: string, step: Omit<MealPreparationStep, "id">) => Promise<string>;
 }
 
 const ContentContext = createContext<ContentContextType | undefined>(undefined);
@@ -107,6 +121,7 @@ const API_BASE_URL = "https://owntrainer.uz";
 const EXERCISE_API_BASE = `${API_BASE_URL}/api/exercise/api/exerciseblocks`;
 const EXERCISE_STEP_API_BASE = `${API_BASE_URL}/api/exercise/api/exercises`;
 const MEAL_API_BASE = `${API_BASE_URL}/api/food/api/meals`;
+const MEAL_STEP_API_BASE = `${API_BASE_URL}/api/food/api/meal-steps`;
 
 // Headers
 const getHeaders = () => {
@@ -574,6 +589,223 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  const updateExerciseStep = async (stepId: string, data: Partial<ExerciseStep>) => {
+    try {
+      const stepData = {
+        name: data.name,
+        exercise_time: data.duration,
+        description: data.description
+      };
+
+      const response = await axios.patch(`${EXERCISE_STEP_API_BASE}/${stepId}/`, stepData, {
+        headers: getHeaders()
+      });
+      
+      if (response.status === 200) {
+        // Update the local state after successful API call
+        const updatedStepData = response.data;
+        setExerciseBlocks(prev => 
+          prev.map(block => ({
+            ...block,
+            steps: block.steps.map(step => 
+              step.id === stepId ? {
+                ...step,
+                name: updatedStepData.name,
+                duration: updatedStepData.exercise_time,
+                description: updatedStepData.description,
+                image_url: updatedStepData.image_url
+              } : step
+            )
+          }))
+        );
+        toast.success("Mashq qadam muvaffaqiyatli yangilandi");
+        return;
+      }
+      
+      throw new Error("Unexpected response status");
+    } catch (error) {
+      console.error("Error updating exercise step:", error);
+      toast.error("Mashq qadamini yangilashda xatolik yuz berdi");
+      
+      // Update local state anyway for UI consistency
+      setExerciseBlocks(prev => 
+        prev.map(block => ({
+          ...block,
+          steps: block.steps.map(step => 
+            step.id === stepId ? { ...step, ...data } : step
+          )
+        }))
+      );
+    }
+  };
+
+  const createExerciseStep = async (blockId: string, step: Omit<ExerciseStep, "id">): Promise<string> => {
+    try {
+      const block = exerciseBlocks.find(b => b.id === blockId);
+      if (!block) throw new Error("Block not found");
+      
+      const stepData = {
+        exercise_block: blockId,
+        name: step.name,
+        exercise_time: step.duration,
+        description: step.description,
+        sequence_number: block.steps.length + 1
+      };
+
+      const response = await axios.post(EXERCISE_STEP_API_BASE + "/", stepData, {
+        headers: getHeaders()
+      });
+      
+      if (response.status === 201 || response.status === 200) {
+        const newStep = {
+          id: String(response.data.id),
+          name: response.data.name,
+          duration: response.data.exercise_time,
+          description: response.data.description,
+          image_url: response.data.image_url
+        };
+        
+        // Update local state
+        setExerciseBlocks(prev => 
+          prev.map(b => b.id === blockId ? {
+            ...b,
+            steps: [...b.steps, newStep]
+          } : b)
+        );
+        
+        toast.success("Mashq qadami muvaffaqiyatli qo'shildi");
+        return newStep.id;
+      }
+      
+      throw new Error("Unexpected response status");
+    } catch (error) {
+      console.error("Error creating exercise step:", error);
+      toast.error("Mashq qadamini qo'shishda xatolik yuz berdi");
+      
+      // For UI consistency, generate a temporary ID and update local state
+      const tempId = `temp-${Date.now()}`;
+      const newStep: ExerciseStep = { id: tempId, ...step };
+      
+      setExerciseBlocks(prev => 
+        prev.map(b => b.id === blockId ? {
+          ...b,
+          steps: [...b.steps, newStep]
+        } : b)
+      );
+      
+      return tempId;
+    }
+  };
+
+  const updateMealStep = async (stepId: string, data: Partial<MealPreparationStep>) => {
+    try {
+      const stepData = {
+        title: data.title || "",
+        text: data.description || "",
+        step_time: data.step_time || "5",
+        step_number: data.step_number || 1
+      };
+
+      const response = await axios.patch(`${MEAL_STEP_API_BASE}/${stepId}/`, stepData, {
+        headers: getHeaders()
+      });
+      
+      if (response.status === 200) {
+        // Update the local state after successful API call
+        const updatedStepData = response.data;
+        setMeals(prev => 
+          prev.map(meal => ({
+            ...meal,
+            steps: meal.steps.map(step => 
+              step.id === stepId ? {
+                ...step,
+                title: updatedStepData.title,
+                description: updatedStepData.text,
+                step_time: updatedStepData.step_time,
+                step_number: updatedStepData.step_number
+              } : step
+            )
+          }))
+        );
+        toast.success("Taom tayyorlash qadami muvaffaqiyatli yangilandi");
+        return;
+      }
+      
+      throw new Error("Unexpected response status");
+    } catch (error) {
+      console.error("Error updating meal step:", error);
+      toast.error("Taom tayyorlash qadamini yangilashda xatolik yuz berdi");
+      
+      // Update local state anyway for UI consistency
+      setMeals(prev => 
+        prev.map(meal => ({
+          ...meal,
+          steps: meal.steps.map(step => 
+            step.id === stepId ? { ...step, ...data } : step
+          )
+        }))
+      );
+    }
+  };
+
+  const createMealStep = async (mealId: string, step: Omit<MealPreparationStep, "id">): Promise<string> => {
+    try {
+      const meal = meals.find(m => m.id === mealId);
+      if (!meal) throw new Error("Meal not found");
+      
+      const stepData = {
+        meal: mealId,
+        title: step.title || "",
+        text: step.description || "",
+        step_time: step.step_time || "5",
+        step_number: step.step_number || meal.steps.length + 1
+      };
+
+      const response = await axios.post(MEAL_STEP_API_BASE + "/", stepData, {
+        headers: getHeaders()
+      });
+      
+      if (response.status === 201 || response.status === 200) {
+        const newStep = {
+          id: String(response.data.id),
+          title: response.data.title,
+          description: response.data.text,
+          step_time: response.data.step_time,
+          step_number: response.data.step_number
+        };
+        
+        // Update local state
+        setMeals(prev => 
+          prev.map(m => m.id === mealId ? {
+            ...m,
+            steps: [...m.steps, newStep]
+          } : m)
+        );
+        
+        toast.success("Taom tayyorlash qadami muvaffaqiyatli qo'shildi");
+        return newStep.id;
+      }
+      
+      throw new Error("Unexpected response status");
+    } catch (error) {
+      console.error("Error creating meal step:", error);
+      toast.error("Taom tayyorlash qadamini qo'shishda xatolik yuz berdi");
+      
+      // For UI consistency, generate a temporary ID and update local state
+      const tempId = `temp-${Date.now()}`;
+      const newStep: MealPreparationStep = { id: tempId, ...step };
+      
+      setMeals(prev => 
+        prev.map(m => m.id === mealId ? {
+          ...m,
+          steps: [...m.steps, newStep]
+        } : m)
+      );
+      
+      return tempId;
+    }
+  };
+
   return (
     <ContentContext.Provider
       value={{
@@ -589,7 +821,11 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
         addMeal,
         updateMeal,
         deleteMeal,
-        uploadMealImage
+        uploadMealImage,
+        updateExerciseStep,
+        createExerciseStep,
+        updateMealStep,
+        createMealStep
       }}
     >
       {children}
