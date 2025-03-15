@@ -1,43 +1,21 @@
-import React, { useState, useRef, useEffect } from "react";
+
+import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { 
-  ImagePlus, Plus, X, Upload, Youtube, Clock, Droplets, Flame, 
-  ArrowLeft, Check, Home, FileText
-} from "lucide-react";
+import { Plus, ArrowLeft, Check, Home, FileText } from "lucide-react";
 import { useContent, ExerciseStep, MealPreparationStep } from "@/contexts/ContentContext";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
-import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
-import { toast } from "sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import { toast } from "sonner";
+
+// Import custom components
+import ContentTypeDialog from "@/components/ContentTypeDialog";
+import ExerciseForm, { exerciseSchema, ExerciseFormValues } from "@/components/ExerciseForm";
+import MealForm, { mealSchema, MealFormValues } from "@/components/MealForm";
+import ExerciseSteps from "@/components/ExerciseSteps";
+import MealSteps from "@/components/MealSteps";
 
 type ContentType = "mashqlar" | "taomnnoma";
-
-// Form validation schemas
-const exerciseSchema = z.object({
-  name: z.string().min(3, "Kamida 3 ta belgi bo'lishi kerak"),
-  calories: z.coerce.number().min(0, "Kaloriya 0 dan kam bo'lmasligi kerak"),
-  water_intake: z.coerce.number().min(0, "Suv istimoli 0 dan kam bo'lmasligi kerak"),
-  duration: z.coerce.number().min(1, "Davomiyligi 1 daqiqadan kam bo'lmasligi kerak"),
-  description: z.string().min(10, "Kamida 10 ta belgi bo'lishi kerak"),
-  video_url: z.string().optional(),
-});
-
-const mealSchema = z.object({
-  name: z.string().min(3, "Kamida 3 ta belgi bo'lishi kerak"),
-  calories: z.coerce.number().min(0, "Kaloriya 0 dan kam bo'lmasligi kerak"),
-  water_intake: z.coerce.number().min(0, "Suv istimoli 0 dan kam bo'lmasligi kerak"),
-  preparation_time: z.coerce.number().min(1, "Tayyorlash vaqti 1 daqiqadan kam bo'lmasligi kerak"),
-  description: z.string().min(10, "Kamida 10 ta belgi bo'lishi kerak"),
-  video_url: z.string().optional(),
-  meal_type: z.enum(["breakfast", "lunch", "snack", "dinner"]).default("breakfast"),
-});
 
 const AddEditContent: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -53,7 +31,11 @@ const AddEditContent: React.FC = () => {
     uploadExerciseStepImage,
     addMeal,
     updateMeal,
-    uploadMealImage
+    uploadMealImage,
+    createExerciseStep,
+    createMealStep,
+    updateExerciseStep,
+    updateMealStep
   } = useContent();
 
   // State
@@ -62,81 +44,99 @@ const AddEditContent: React.FC = () => {
   const [mainImage, setMainImage] = useState<string | null>(null);
   const [stepImages, setStepImages] = useState<Record<string, string>>({});
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-
-  // Refs
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const stepFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [modifiedSteps, setModifiedSteps] = useState<Set<string>>(new Set());
+  const [serverSteps, setServerSteps] = useState<Record<string, boolean>>({});
 
   // Forms
-  const exerciseForm = useForm<z.infer<typeof exerciseSchema>>({
+  const exerciseForm = useForm<ExerciseFormValues>({
     resolver: zodResolver(exerciseSchema),
     defaultValues: {
       name: "",
-      calories: 0,
-      water_intake: 0,
-      duration: 30,
+      duration: 40,
       description: "",
       video_url: "",
     },
+    mode: "onChange"
   });
 
-  const mealForm = useForm<z.infer<typeof mealSchema>>({
+  const mealForm = useForm<MealFormValues>({
     resolver: zodResolver(mealSchema),
     defaultValues: {
       name: "",
-      calories: 0,
-      water_intake: 0,
+      calories: "0",
+      water_intake: "0",
       preparation_time: 20,
       description: "",
       video_url: "",
       meal_type: "breakfast",
     },
+    mode: "onChange"
   });
 
+  // Open dialog for content type selection when adding new content
+  useEffect(() => {
+    if (!isEditMode) {
+      setIsDialogOpen(true);
+    }
+  }, [isEditMode]);
+
+  // Load existing data for editing
   useEffect(() => {
     if (isEditMode && id) {
       const exerciseBlock = exerciseBlocks.find(block => block.id === id);
       const meal = meals.find(meal => meal.id === id);
-  
+
       if (exerciseBlock) {
         setContentType("mashqlar");
-        exerciseForm.setValue("name", exerciseBlock.name);
-        exerciseForm.setValue("calories", exerciseBlock.calories);
-        exerciseForm.setValue("water_intake", exerciseBlock.water_intake);
-        exerciseForm.setValue("duration", exerciseBlock.duration);
-        exerciseForm.setValue("description", exerciseBlock.description);
-        exerciseForm.setValue("video_url", exerciseBlock.video_url || "");
-  
+        exerciseForm.reset({
+          name: exerciseBlock.name,
+          duration: typeof exerciseBlock.duration === 'number' ? exerciseBlock.duration : parseInt(exerciseBlock.duration as string) || 0,
+          description: exerciseBlock.description,
+          video_url: exerciseBlock.video_url || "",
+        });
         setSteps(exerciseBlock.steps);
-  
         if (exerciseBlock.image_url) setMainImage(exerciseBlock.image_url);
-  
+
+        // Set step images
         const stepImgMap: Record<string, string> = {};
+        const serverStepsMap: Record<string, boolean> = {};
         exerciseBlock.steps.forEach(step => {
           if (step.image_url) stepImgMap[step.id] = step.image_url;
+          // Mark steps that exist on the server
+          serverStepsMap[step.id] = true;
         });
         setStepImages(stepImgMap);
+        setServerSteps(serverStepsMap);
       } else if (meal) {
         setContentType("taomnnoma");
-        mealForm.setValue("name", meal.name);
-        mealForm.setValue("calories", meal.calories);
-        mealForm.setValue("water_intake", meal.water_intake);
-        mealForm.setValue("preparation_time", meal.preparation_time);
-        mealForm.setValue("description", meal.description);
-        mealForm.setValue("video_url", meal.video_url || "");
-        mealForm.setValue("meal_type", meal.meal_type || "breakfast");
-  
+        mealForm.reset({
+          name: meal.name,
+          calories: String(meal.calories || "0"),
+          water_intake: String(meal.water_intake || "0"),
+          preparation_time: typeof meal.preparation_time === 'number' ? meal.preparation_time : parseInt(String(meal.preparation_time)) || 0,
+          description: meal.description,
+          video_url: meal.video_url || "",
+          meal_type: meal.meal_type,
+        });
         setSteps(meal.steps);
-  
         if (meal.image_url) setMainImage(meal.image_url);
+        
+        // Mark steps that exist on the server
+        const serverStepsMap: Record<string, boolean> = {};
+        meal.steps.forEach(step => {
+          serverStepsMap[step.id] = true;
+        });
+        setServerSteps(serverStepsMap);
       }
     }
   }, [id, exerciseBlocks, meals, isEditMode, exerciseForm, mealForm]);
 
-
-  const handleMainImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleMainImageUpload = (file: File) => {
+    if (!file.size) {
+      setMainImage(null);
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = () => {
@@ -153,9 +153,13 @@ const AddEditContent: React.FC = () => {
     }
   };
 
-  const handleStepImageUpload = (stepId: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleStepImageUpload = (stepId: string, file: File) => {
+    if (!file.size) {
+      const newStepImages = { ...stepImages };
+      delete newStepImages[stepId];
+      setStepImages(newStepImages);
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = () => {
@@ -163,35 +167,92 @@ const AddEditContent: React.FC = () => {
     };
     reader.readAsDataURL(file);
 
+    // Mark the step as modified
+    setModifiedSteps(prev => new Set(prev).add(stepId));
+
+    // Images are still uploaded immediately since they require a different API
     if (isEditMode && id && contentType === "mashqlar") {
       uploadExerciseStepImage(id, stepId, file);
     }
   };
 
-  const addStep = () => {
-    const newStepId = crypto.randomUUID();
-    
-    if (contentType === "mashqlar") {
-      const newStep: ExerciseStep = {
-        id: newStepId,
-        name: "",
-        duration: "5 - 10 daqiqa",
-        description: "",
-      };
-      setSteps(prev => [...prev, newStep]);
+  const addStep = async () => {
+    if (isEditMode && id) {
+      if (contentType === "mashqlar") {
+        const newStepData: Omit<ExerciseStep, "id"> = {
+          name: "",
+          duration: "5 - 10 daqiqa",
+          description: "",
+        };
+        
+        // Create the step on the server and get back the ID
+        const newStepId = await createExerciseStep(id, newStepData);
+        
+        // Add to local state with the returned ID
+        const newStep: ExerciseStep = {
+          id: newStepId,
+          ...newStepData
+        };
+        setSteps(prev => [...prev, newStep]);
+        
+        // Mark as existing on server
+        setServerSteps(prev => ({...prev, [newStepId]: true}));
+      } else {
+        const newStepData: Omit<MealPreparationStep, "id"> = {
+          description: "",
+          title: "",
+          step_time: "5",
+          step_number: steps.length + 1,
+        };
+        
+        // Create the step on the server and get back the ID
+        const newStepId = await createMealStep(id, newStepData);
+        
+        // Add to local state with the returned ID
+        const newStep: MealPreparationStep = {
+          id: newStepId,
+          ...newStepData
+        };
+        setSteps(prev => [...prev, newStep]);
+        
+        // Mark as existing on server
+        setServerSteps(prev => ({...prev, [newStepId]: true}));
+      }
     } else {
-      const newStep: MealPreparationStep = {
-        id: newStepId,
-        description: "",
-      };
-      setSteps(prev => [...prev, newStep]);
+      // If we're in create mode, just create steps locally
+      const newStepId = crypto.randomUUID();
+      
+      if (contentType === "mashqlar") {
+        const newStep: ExerciseStep = {
+          id: newStepId,
+          name: "",
+          duration: "5 - 10 daqiqa",
+          description: "",
+        };
+        setSteps(prev => [...prev, newStep]);
+      } else {
+        const newStep: MealPreparationStep = {
+          id: newStepId,
+          description: "",
+          title: "",
+          step_time: "5",
+          step_number: steps.length + 1,
+        };
+        setSteps(prev => [...prev, newStep]);
+      }
     }
   };
 
   const updateStep = (id: string, data: Partial<ExerciseStep | MealPreparationStep>) => {
+    // Only update local state, mark step as modified for later server update
     setSteps(prev =>
       prev.map(step => (step.id === id ? { ...step, ...data } : step))
     );
+    
+    // Add to modified steps set if it exists on server
+    if (serverSteps[id]) {
+      setModifiedSteps(prev => new Set(prev).add(id));
+    }
   };
 
   const removeStep = (id: string) => {
@@ -205,18 +266,65 @@ const AddEditContent: React.FC = () => {
     }
   };
 
+  // Update all modified steps on the server
+  const updateModifiedStepsOnServer = async () => {
+    if (!isEditMode || !id) return;
+    
+    const promises = [];
+    
+    for (const stepId of modifiedSteps) {
+      const step = steps.find(s => s.id === stepId);
+      if (!step) continue;
+      
+      if (contentType === "mashqlar") {
+        const exerciseStep = step as ExerciseStep;
+        promises.push(
+          updateExerciseStep(stepId, {
+            name: exerciseStep.name,
+            duration: exerciseStep.duration,
+            description: exerciseStep.description
+          })
+        );
+      } else {
+        const mealStep = step as MealPreparationStep;
+        promises.push(
+          updateMealStep(stepId, {
+            title: mealStep.title || "", // Ensure title is never empty as API requires it
+            description: mealStep.description,
+            step_time: mealStep.step_time,
+            step_number: mealStep.step_number
+          })
+        );
+      }
+    }
+    
+    if (promises.length > 0) {
+      try {
+        await Promise.all(promises);
+        // Clear modified steps after successful update
+        setModifiedSteps(new Set());
+      } catch (error) {
+        console.error("Error updating steps:", error);
+        toast.error("Ba'zi qadamlarni yangilashda xatolik yuz berdi");
+      }
+    }
+  };
+
   const onSubmit = async () => {
     try {
+      setIsSubmitting(true);
+      
       if (contentType === "mashqlar") {
         const isValid = await exerciseForm.trigger();
-        if (!isValid) return;
+        if (!isValid) {
+          setIsSubmitting(false);
+          return;
+        }
 
         const formData = exerciseForm.getValues();
         
         const exerciseData = {
           name: formData.name,
-          calories: formData.calories,
-          water_intake: formData.water_intake,
           duration: formData.duration,
           description: formData.description,
           video_url: formData.video_url,
@@ -225,13 +333,20 @@ const AddEditContent: React.FC = () => {
         };
 
         if (isEditMode && id) {
+          // First update the main exercise block
           await updateExerciseBlock(id, exerciseData);
+          // Then update any modified steps
+          await updateModifiedStepsOnServer();
         } else {
+          // For new content, the steps will be created as part of the block
           await addExerciseBlock(exerciseData);
         }
       } else {
         const isValid = await mealForm.trigger();
-        if (!isValid) return;
+        if (!isValid) {
+          setIsSubmitting(false);
+          return;
+        }
 
         const formData = mealForm.getValues();
         
@@ -248,8 +363,12 @@ const AddEditContent: React.FC = () => {
         };
 
         if (isEditMode && id) {
+          // First update the main meal
           await updateMeal(id, mealData);
+          // Then update any modified steps
+          await updateModifiedStepsOnServer();
         } else {
+          // For new content, the steps will be created as part of the meal
           await addMeal(mealData);
         }
       }
@@ -259,11 +378,14 @@ const AddEditContent: React.FC = () => {
     } catch (error) {
       toast.error("Xatolik yuz berdi");
       console.error("Error saving content:", error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-[#111827] text-white">
+      {/* Top Navigation Bar */}
       <div className="bg-[#1a2336] py-3 px-6 flex items-center justify-between sticky top-0 z-10">
         <div className="text-xl font-bold">Fitness Admin</div>
         <div className="flex items-center gap-4">
@@ -290,39 +412,16 @@ const AddEditContent: React.FC = () => {
         </div>
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="bg-[#1a2336] border-[#2c3855] text-white max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Kontent qo'shish</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <RadioGroup 
-              defaultValue={contentType} 
-              onValueChange={(value) => setContentType(value as ContentType)}
-              className="flex flex-col space-y-2"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="mashqlar" id="mashqlar" />
-                <Label htmlFor="mashqlar">Mashqlar</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="taomnnoma" id="taomnnoma" />
-                <Label htmlFor="taomnnoma">Taomnnoma</Label>
-              </div>
-            </RadioGroup>
-            <div className="flex justify-end">
-              <Button 
-                onClick={() => setIsDialogOpen(false)} 
-                className="bg-[#2563eb] hover:bg-[#1d54cf]"
-              >
-                Davom etish
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Content Type Selection Dialog */}
+      <ContentTypeDialog 
+        isOpen={isDialogOpen} 
+        onOpenChange={setIsDialogOpen} 
+        contentType={contentType} 
+        onContentTypeChange={setContentType} 
+      />
 
       <div className="container mx-auto p-6">
+        {/* Page Header */}
         <div className="flex items-center gap-4 mb-8">
           <button 
             className="p-2 rounded-full bg-[#1e293b] hover:bg-[#283548]"
@@ -335,571 +434,68 @@ const AddEditContent: React.FC = () => {
           </h1>
         </div>
 
+        {/* Main Form Section */}
         <div className="bg-[#1a2336] rounded-lg p-6 mb-8">
           <h2 className="text-xl font-semibold mb-6">
             {contentType === "mashqlar" ? "Mashq turi" : "Taom turi"}
           </h2>
 
           {contentType === "mashqlar" ? (
-            <Form {...exerciseForm}>
-              <form className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-6">
-                  <FormField
-                    control={exerciseForm.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Sarlavha</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="Yurish mashqlari" 
-                            className="bg-[#131c2e] border-[#2c3855] focus-visible:ring-[#3b82f6]"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage className="text-red-400" />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* Category selection - placeholder for now */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Kategoriyalar</label>
-                    <div className="relative">
-                      <Input 
-                        type="text" 
-                        placeholder="Yurish mashqlari"
-                        className="bg-[#131c2e] border-[#2c3855] focus-visible:ring-[#3b82f6] pl-10"
-                      />
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2">
-                        <div className="bg-[#3b82f6] w-5 h-5 rounded-full" />
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Rasm yuklash</label>
-                    <div 
-                      className={`
-                        border-2 border-dashed rounded-lg p-4 h-64 flex flex-col items-center justify-center
-                        ${mainImage ? 'border-[#2c3855]' : 'border-[#3b82f6] border-opacity-50 hover:border-opacity-100'}
-                        transition-all cursor-pointer bg-[#131c2e]
-                      `}
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      {mainImage ? (
-                        <div className="relative w-full h-full">
-                          <img 
-                            src={mainImage} 
-                            alt="Upload preview" 
-                            className="w-full h-full object-cover rounded-md"
-                          />
-                          <button 
-                            className="absolute top-2 right-2 bg-black bg-opacity-50 rounded-full p-1"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setMainImage(null);
-                            }}
-                          >
-                            <X size={16} />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="text-center">
-                          <ImagePlus size={48} className="mx-auto mb-2 text-gray-400" />
-                          <p className="text-sm text-gray-400">Rasm yuklash</p>
-                          <p className="text-xs text-gray-500 mt-1">Rasmning formati JPG yoki PNG, o'lchami max: 5MB</p>
-                        </div>
-                      )}
-                      <input 
-                        type="file" 
-                        ref={fileInputRef}
-                        className="hidden" 
-                        accept="image/*"
-                        onChange={handleMainImageUpload}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <FormField
-                      control={exerciseForm.control}
-                      name="description"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Tavsif</FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Bu o'rta darajadagi mashq bo'lib, yurish va yurak mushaklarini yaxshilaydi..."
-                              className="bg-[#131c2e] border-[#2c3855] focus-visible:ring-[#3b82f6] h-16"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage className="text-red-400" />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={exerciseForm.control}
-                      name="video_url"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Video havolasi</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Input 
-                                placeholder="https://youtube.com/watch?v=dQw4w9WgXcQ" 
-                                className="bg-[#131c2e] border-[#2c3855] focus-visible:ring-[#3b82f6] pl-10"
-                                {...field}
-                              />
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                <Youtube size={16} />
-                              </span>
-                            </div>
-                          </FormControl>
-                          <FormMessage className="text-red-400" />
-                        </FormItem>
-                      )}
-                    />
-
-                    <div className="grid grid-cols-3 gap-4">
-                      <FormField
-                        control={exerciseForm.control}
-                        name="duration"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Vaqti (daq)</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <Input 
-                                  type="number"
-                                  className="bg-[#131c2e] border-[#2c3855] focus-visible:ring-[#3b82f6] pl-10"
-                                  {...field}
-                                />
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                  <Clock size={16} />
-                                </span>
-                              </div>
-                            </FormControl>
-                            <FormMessage className="text-red-400" />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={exerciseForm.control}
-                        name="calories"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Kaloriya</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <Input 
-                                  type="number"
-                                  className="bg-[#131c2e] border-[#2c3855] focus-visible:ring-[#3b82f6] pl-10"
-                                  {...field}
-                                />
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                  <Flame size={16} />
-                                </span>
-                              </div>
-                            </FormControl>
-                            <FormMessage className="text-red-400" />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={exerciseForm.control}
-                        name="water_intake"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Suv (ml)</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <Input 
-                                  type="number"
-                                  className="bg-[#131c2e] border-[#2c3855] focus-visible:ring-[#3b82f6] pl-10"
-                                  {...field}
-                                />
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                  <Droplets size={16} />
-                                </span>
-                              </div>
-                            </FormControl>
-                            <FormMessage className="text-red-400" />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </form>
-            </Form>
+            <ExerciseForm 
+              form={exerciseForm}
+              mainImage={mainImage}
+              onImageUpload={handleMainImageUpload}
+            />
           ) : (
-            <Form {...mealForm}>
-              <form className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-6">
-                  <FormField
-                    control={mealForm.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Sarlavha</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="Avokado va tuxumli buterbrod" 
-                            className="bg-[#131c2e] border-[#2c3855] focus-visible:ring-[#3b82f6]"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage className="text-red-400" />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* Category selection - placeholder for now */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Kategoriyalar</label>
-                    <div className="relative">
-                      <Input 
-                        type="text" 
-                        placeholder="Nonushtalar"
-                        className="bg-[#131c2e] border-[#2c3855] focus-visible:ring-[#3b82f6] pl-10"
-                      />
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2">
-                        <div className="bg-[#10b981] w-5 h-5 rounded-full" />
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Rasm yuklash</label>
-                    <div 
-                      className={`
-                        border-2 border-dashed rounded-lg p-4 h-64 flex flex-col items-center justify-center
-                        ${mainImage ? 'border-[#2c3855]' : 'border-[#3b82f6] border-opacity-50 hover:border-opacity-100'}
-                        transition-all cursor-pointer bg-[#131c2e]
-                      `}
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      {mainImage ? (
-                        <div className="relative w-full h-full">
-                          <img 
-                            src={mainImage} 
-                            alt="Upload preview" 
-                            className="w-full h-full object-cover rounded-md"
-                          />
-                          <button 
-                            className="absolute top-2 right-2 bg-black bg-opacity-50 rounded-full p-1"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setMainImage(null);
-                            }}
-                          >
-                            <X size={16} />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="text-center">
-                          <ImagePlus size={48} className="mx-auto mb-2 text-gray-400" />
-                          <p className="text-sm text-gray-400">Rasm yuklash</p>
-                          <p className="text-xs text-gray-500 mt-1">Rasmning formati JPG yoki PNG, o'lchami max: 5MB</p>
-                        </div>
-                      )}
-                      <input 
-                        type="file" 
-                        ref={fileInputRef}
-                        className="hidden" 
-                        accept="image/*"
-                        onChange={handleMainImageUpload}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <FormField
-                      control={mealForm.control}
-                      name="description"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Tavsif</FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Bu yengil taom tavsifi..."
-                              className="bg-[#131c2e] border-[#2c3855] focus-visible:ring-[#3b82f6] h-16"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage className="text-red-400" />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={mealForm.control}
-                      name="video_url"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Video havolasi</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Input 
-                                placeholder="https://youtube.com/watch?v=dQw4w9WgXcQ" 
-                                className="bg-[#131c2e] border-[#2c3855] focus-visible:ring-[#3b82f6] pl-10"
-                                {...field}
-                              />
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                <Youtube size={16} />
-                              </span>
-                            </div>
-                          </FormControl>
-                          <FormMessage className="text-red-400" />
-                        </FormItem>
-                      )}
-                    />
-
-                    <div className="grid grid-cols-3 gap-4">
-                      <FormField
-                        control={mealForm.control}
-                        name="preparation_time"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Vaqti (daq)</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <Input 
-                                  type="number"
-                                  className="bg-[#131c2e] border-[#2c3855] focus-visible:ring-[#3b82f6] pl-10"
-                                  {...field}
-                                />
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                  <Clock size={16} />
-                                </span>
-                              </div>
-                            </FormControl>
-                            <FormMessage className="text-red-400" />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={mealForm.control}
-                        name="calories"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Kaloriya</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <Input 
-                                  type="number"
-                                  className="bg-[#131c2e] border-[#2c3855] focus-visible:ring-[#3b82f6] pl-10"
-                                  {...field}
-                                />
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                  <Flame size={16} />
-                                </span>
-                              </div>
-                            </FormControl>
-                            <FormMessage className="text-red-400" />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={mealForm.control}
-                        name="water_intake"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Suv (ml)</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <Input 
-                                  type="number"
-                                  className="bg-[#131c2e] border-[#2c3855] focus-visible:ring-[#3b82f6] pl-10"
-                                  {...field}
-                                />
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                  <Droplets size={16} />
-                                </span>
-                              </div>
-                            </FormControl>
-                            <FormMessage className="text-red-400" />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-6">
-                  <FormField
-                    control={mealForm.control}
-                    name="meal_type"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Taom turi</FormLabel>
-                        <FormControl>
-                          <select
-                            className="w-full bg-[#131c2e] border-[#2c3855] text-white px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-[#3b82f6]"
-                            {...field}
-                          >
-                            <option value="breakfast">Nonushta</option>
-                            <option value="lunch">Tushlik</option>
-                            <option value="dinner">Kechki ovqat</option>
-                            <option value="snack">Yengil tamaddi</option>
-                          </select>
-                        </FormControl>
-                        <FormMessage className="text-red-400" />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </form>
-            </Form>
+            <MealForm 
+              form={mealForm}
+              mainImage={mainImage}
+              onImageUpload={handleMainImageUpload}
+            />
           )}
         </div>
 
+        {/* Steps Section */}
         <div className="bg-[#1a2336] rounded-lg p-6 mb-8">
           <h2 className="text-xl font-semibold mb-6">
             {contentType === "mashqlar" ? "Mashqlar ketma ketligi kiritish" : "Tayyorlash ketma ketligi kiritish"}
           </h2>
 
-          <div className="space-y-6">
-            {steps.map((step, index) => (
-              <div 
-                key={step.id} 
-                className="p-4 bg-[#131c2e] rounded-lg border border-[#2c3855]"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="flex items-center justify-center bg-[#1a2336] text-[#3b82f6] w-8 h-8 rounded-full font-semibold">
-                    {index + 1}
-                  </div>
-                  
-                  <div className="flex-1">
-                    <div className="grid md:grid-cols-2 gap-4 mb-4">
-                      {contentType === "mashqlar" && (
-                        <div>
-                          <label className="block text-sm font-medium mb-2">Mashq nomi</label>
-                          <Input 
-                            type="text" 
-                            placeholder="Isitish"
-                            className="bg-[#1a2336] border-[#2c3855] focus-visible:ring-[#3b82f6]"
-                            value={(step as ExerciseStep).name || ""}
-                            onChange={(e) => updateStep(step.id, { name: e.target.value })}
-                          />
-                        </div>
-                      )}
-
-                      {contentType === "mashqlar" && (
-                        <div>
-                          <label className="block text-sm font-medium mb-2">Davomiyligi</label>
-                          <Input 
-                            type="text" 
-                            placeholder="5 - 10 daqiqa"
-                            className="bg-[#1a2336] border-[#2c3855] focus-visible:ring-[#3b82f6]"
-                            value={(step as ExerciseStep).duration || ""}
-                            onChange={(e) => updateStep(step.id, { duration: e.target.value })}
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="mb-4">
-                      <label className="block text-sm font-medium mb-2">Tavsif</label>
-                      <Textarea 
-                        placeholder={
-                          contentType === "mashqlar" 
-                            ? "Yengil yurish yoki joggingni oqrgani uchun mashqlar" 
-                            : "Tuxumlarni suvda qaynatring yoki pishiring qiling"
-                        }
-                        className="bg-[#1a2336] border-[#2c3855] focus-visible:ring-[#3b82f6] h-16"
-                        value={(step as any).description || ""}
-                        onChange={(e) => updateStep(step.id, { description: e.target.value })}
-                      />
-                    </div>
-
-                    {contentType === "mashqlar" && (
-                      <div>
-                        <label className="block text-sm font-medium mb-2">Rasm yuklash</label>
-                        <div 
-                          className={`
-                            border-2 border-dashed rounded-lg p-4 h-40 flex flex-col items-center justify-center
-                            ${stepImages[step.id] ? 'border-[#2c3855]' : 'border-[#3b82f6] border-opacity-50 hover:border-opacity-100'}
-                            transition-all cursor-pointer bg-[#1a2336]
-                          `}
-                          onClick={() => stepFileInputRefs.current[step.id]?.click()}
-                        >
-                          {stepImages[step.id] ? (
-                            <div className="relative w-full h-full">
-                              <img 
-                                src={stepImages[step.id]} 
-                                alt="Upload preview" 
-                                className="w-full h-full object-cover rounded-md"
-                              />
-                              <button 
-                                className="absolute top-2 right-2 bg-black bg-opacity-50 rounded-full p-1"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const newStepImages = { ...stepImages };
-                                  delete newStepImages[step.id];
-                                  setStepImages(newStepImages);
-                                }}
-                              >
-                                <X size={16} />
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="text-center">
-                              <Upload size={32} className="mx-auto mb-2 text-gray-400" />
-                              <p className="text-sm text-gray-400">Mashq rasmi yuklash</p>
-                            </div>
-                          )}
-                          <input 
-                            type="file" 
-                            ref={(ref) => {
-                              stepFileInputRefs.current[step.id] = ref;
-                            }}
-                            className="hidden" 
-                            accept="image/*"
-                            onChange={(e) => handleStepImageUpload(step.id, e)}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <button 
-                    className="p-2 rounded-full hover:bg-[#283548] text-red-400"
-                    onClick={() => removeStep(step.id)}
-                  >
-                    <X size={20} />
-                  </button>
-                </div>
-              </div>
-            ))}
-
-            <button 
-              className="w-full py-3 bg-[#131c2e] hover:bg-[#1e293b] rounded-lg border border-[#2c3855] flex items-center justify-center gap-2 text-sm font-medium"
-              onClick={addStep}
-            >
-              <Plus size={16} />
-              <span>Qadam qo'shish</span>
-            </button>
-          </div>
+          {contentType === "mashqlar" ? (
+            <ExerciseSteps 
+              blockId={isEditMode ? id : undefined}
+              steps={steps as ExerciseStep[]}
+              stepImages={stepImages}
+              onAddStep={addStep}
+              onUpdateStep={updateStep}
+              onRemoveStep={removeStep}
+              onStepImageUpload={handleStepImageUpload}
+            />
+          ) : (
+            <MealSteps 
+              mealId={isEditMode ? id : undefined}
+              steps={steps as MealPreparationStep[]}
+              onAddStep={addStep}
+              onUpdateStep={updateStep}
+              onRemoveStep={removeStep}
+            />
+          )}
         </div>
 
+        {/* Submit Button */}
         <Button 
           onClick={onSubmit}
+          disabled={isSubmitting}
           className="w-full py-6 bg-[#2563eb] hover:bg-[#1d54cf] text-white font-medium rounded-lg flex items-center justify-center gap-2"
         >
-          <Check size={20} />
-          <span>{isEditMode ? "Saqlash va chiqib ketish" : "Yaratish va chiqib ketish"}</span>
+          {isSubmitting ? (
+            <span>Yuklanmoqda...</span>
+          ) : (
+            <>
+              <Check size={20} />
+              <span>{isEditMode ? "Saqlash va chiqib ketish" : "Yaratish va chiqib ketish"}</span>
+            </>
+          )}
         </Button>
       </div>
     </div>
