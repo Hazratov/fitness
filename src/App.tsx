@@ -26,8 +26,8 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/content" element={<ContentList />} />
             <Route path="/add-content" element={<AddEditContent />} />
-            <Route path="/edit-exercise/:id" element={<AddEditContent />} />
-            <Route path="/edit-meal/:id" element={<AddEditContent />} />
+            <Route path="/edit-exercise/:id" element={<AddEditContent type="mashqlar" />} />
+            <Route path="/edit-meal/:id" element={<AddEditContent type="taomnoma" />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

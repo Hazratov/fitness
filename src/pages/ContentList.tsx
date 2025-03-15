@@ -32,6 +32,8 @@ const ContentList: React.FC = () => {
   useEffect(() => {
     fetchExerciseBlocks();
     fetchMeals();
+    console.log("Meals:", meals);
+    console.log("Exercise Blocks:", exerciseBlocks);
   }, []);
   
   // Combine and filter content based on active tab
@@ -52,12 +54,14 @@ const ContentList: React.FC = () => {
   );
   
   const handleEdit = (id: string, type: string) => {
-    if (type === "Mashqlar") {
+    if (type.toLowerCase() === "mashqlar") {
+      
       navigate(`/edit-exercise/${id}`);
-    } else {
+    } else if (type.toLowerCase() === "taomnnoma") {
       navigate(`/edit-meal/${id}`);
     }
   };
+  
   
   const confirmDelete = (id: string, type: string) => {
     setItemToDelete({ id, type });

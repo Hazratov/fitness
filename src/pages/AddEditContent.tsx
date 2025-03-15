@@ -17,8 +17,9 @@ import MealSteps from "@/components/MealSteps";
 
 type ContentType = "mashqlar" | "taomnnoma";
 
-const AddEditContent: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+const AddEditContent: React.FC<{type:string}> = ({type}) => {
+  
+  const { id } = useParams<{ id: string, type: string }>();
   const isEditMode = !!id;
   const navigate = useNavigate();
 
@@ -35,13 +36,17 @@ const AddEditContent: React.FC = () => {
     createExerciseStep,
     createMealStep,
     updateExerciseStep,
-    updateMealStep
+    updateMealStep,
+    fetchMealById,
+    fetchExerciseBlocks,
+    fetchMeals
   } = useContent();
 
   // State
   const [contentType, setContentType] = useState<ContentType>("mashqlar");
   const [steps, setSteps] = useState<(ExerciseStep | MealPreparationStep)[]>([]);
   const [mainImage, setMainImage] = useState<string | null>(null);
+  const [foodPhoto, setFoodPhoto] = useState<string | null>(null);
   const [stepImages, setStepImages] = useState<Record<string, string>>({});
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -75,11 +80,60 @@ const AddEditContent: React.FC = () => {
   });
 
   // Open dialog for content type selection when adding new content
-  useEffect(() => {
-    if (!isEditMode) {
-      setIsDialogOpen(true);
+ // AddEditContent.tsx faylidagi useEffect ni o'zgartirish
+
+ useEffect(() => {
+  if (isEditMode && id) {
+    // URL pathname dan content type ni aniqlash
+    const pathname = window.location.pathname;
+    const isExercisePath = pathname.includes('/edit-exercise/');
+    const isMealPath = pathname.includes('/edit-meal/');
+    
+    if (type === 'mashqlar') {
+      // Faqat mashqlarni qidirish
+      console.log('Mashqlar selected');
+      const exerciseBlock = exerciseBlocks.find(block => block.id === id);
+      if (exerciseBlock) {
+        setContentType("mashqlar");
+        exerciseForm.reset({
+          name: exerciseBlock.name,
+          duration: typeof exerciseBlock.duration === 'number' ? exerciseBlock.duration : parseInt(exerciseBlock.duration as string) || 0,
+          description: exerciseBlock.description,
+          video_url: exerciseBlock.video_url || "",
+        });
+        setSteps(exerciseBlock.steps);
+        if (exerciseBlock.image_url) setMainImage(exerciseBlock.image_url);
+        
+        // Step images va server steps...
+      } else {
+        toast.error("Mashq ma'lumotlari topilmadi");
+        navigate("/content");
+      }
+    } else if (type === 'taomnoma') {
+      // Faqat taomlarni qidirish
+      const meal = meals.find(meal => meal.id === id);
+      if (meal) {
+        setContentType("taomnnoma");
+        mealForm.reset({
+          name: meal.name,
+          calories: String(meal.calories || "0"),
+          water_intake: String(meal.water_intake || "0"),
+          preparation_time: typeof meal.preparation_time === 'number' ? meal.preparation_time : parseInt(String(meal.preparation_time)) || 0,
+          description: meal.description,
+          video_url: meal.video_url || "",
+          meal_type: meal.meal_type,
+        });
+        setSteps(meal.steps);
+        if (meal.image_url) setFoodPhoto(meal.image_url);
+        
+        // Server steps...
+      } else {
+        toast.error("Taom ma'lumotlari topilmadi");
+        navigate("/content");
+      }
     }
-  }, [isEditMode]);
+  }
+}, [id, isEditMode, exerciseBlocks, meals, exerciseForm, mealForm, navigate]);
 
   // Load existing data for editing
   useEffect(() => {
@@ -120,7 +174,7 @@ const AddEditContent: React.FC = () => {
           meal_type: meal.meal_type,
         });
         setSteps(meal.steps);
-        if (meal.image_url) setMainImage(meal.image_url);
+        if (meal.image_url) setFoodPhoto(meal.image_url);
         
         // Mark steps that exist on the server
         const serverStepsMap: Record<string, boolean> = {};
@@ -145,7 +199,7 @@ const AddEditContent: React.FC = () => {
     reader.readAsDataURL(file);
 
     if (isEditMode && id) {
-      if (contentType === "mashqlar") {
+      if (type === "mashqlar") {
         uploadExerciseBlockImage(id, file);
       } else {
         uploadMealImage(id, file);
@@ -171,14 +225,14 @@ const AddEditContent: React.FC = () => {
     setModifiedSteps(prev => new Set(prev).add(stepId));
 
     // Images are still uploaded immediately since they require a different API
-    if (isEditMode && id && contentType === "mashqlar") {
+    if (isEditMode && id && type === "mashqlar") {
       uploadExerciseStepImage(id, stepId, file);
     }
   };
 
   const addStep = async () => {
     if (isEditMode && id) {
-      if (contentType === "mashqlar") {
+      if (type === "mashqlar") {
         const newStepData: Omit<ExerciseStep, "id"> = {
           name: "",
           duration: "5 - 10 daqiqa",
@@ -222,7 +276,7 @@ const AddEditContent: React.FC = () => {
       // If we're in create mode, just create steps locally
       const newStepId = crypto.randomUUID();
       
-      if (contentType === "mashqlar") {
+      if (type === "mashqlar") {
         const newStep: ExerciseStep = {
           id: newStepId,
           name: "",
@@ -276,7 +330,7 @@ const AddEditContent: React.FC = () => {
       const step = steps.find(s => s.id === stepId);
       if (!step) continue;
       
-      if (contentType === "mashqlar") {
+      if (type === "mashqlar") {
         const exerciseStep = step as ExerciseStep;
         promises.push(
           updateExerciseStep(stepId, {
@@ -314,7 +368,7 @@ const AddEditContent: React.FC = () => {
     try {
       setIsSubmitting(true);
       
-      if (contentType === "mashqlar") {
+      if (type === "mashqlar") {
         const isValid = await exerciseForm.trigger();
         if (!isValid) {
           setIsSubmitting(false);
@@ -359,7 +413,7 @@ const AddEditContent: React.FC = () => {
           video_url: formData.video_url,
           meal_type: formData.meal_type,
           steps: steps as MealPreparationStep[],
-          image_url: mainImage || undefined,
+          food_photo_url: foodPhoto || undefined,
         };
 
         if (isEditMode && id) {
@@ -437,10 +491,10 @@ const AddEditContent: React.FC = () => {
         {/* Main Form Section */}
         <div className="bg-[#1a2336] rounded-lg p-6 mb-8">
           <h2 className="text-xl font-semibold mb-6">
-            {contentType === "mashqlar" ? "Mashq turi" : "Taom turi"}
+            {type === "mashqlar" ? "Mashq turi" : "Taom turi"}
           </h2>
 
-          {contentType === "mashqlar" ? (
+          {type === "mashqlar" ? (
             <ExerciseForm 
               form={exerciseForm}
               mainImage={mainImage}
@@ -458,10 +512,10 @@ const AddEditContent: React.FC = () => {
         {/* Steps Section */}
         <div className="bg-[#1a2336] rounded-lg p-6 mb-8">
           <h2 className="text-xl font-semibold mb-6">
-            {contentType === "mashqlar" ? "Mashqlar ketma ketligi kiritish" : "Tayyorlash ketma ketligi kiritish"}
+            {type === "mashqlar" ? "Mashqlar ketma ketligi kiritish" : "Tayyorlash ketma ketligi kiritish"}
           </h2>
 
-          {contentType === "mashqlar" ? (
+          {type === "mashqlar" ? (
             <ExerciseSteps 
               blockId={isEditMode ? id : undefined}
               steps={steps as ExerciseStep[]}

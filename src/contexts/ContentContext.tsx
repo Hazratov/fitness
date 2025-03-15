@@ -112,6 +112,7 @@ interface ContentContextType {
   createExerciseStep: (blockId: string, step: Omit<ExerciseStep, "id">) => Promise<string>;
   updateMealStep: (stepId: string, data: Partial<MealPreparationStep>) => Promise<void>;
   createMealStep: (mealId: string, step: Omit<MealPreparationStep, "id">) => Promise<string>;
+  fetchMealById: (id: string) => Promise<Meal | null>;
 }
 
 const ContentContext = createContext<ContentContextType | undefined>(undefined);
@@ -246,9 +247,29 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  const fetchMealById = async (id: string) => {
+    try {
+      const response = await axios.get(`${MEAL_API_BASE}/${id}/`, {
+        headers: getHeaders()
+      });
+      
+      if (response.status === 200) {
+        const apiMeal = response.data;
+        console.log("Received meal:", apiMeal);
+        const meal = convertFromMealAPI(apiMeal);
+        return meal;
+      }
+      
+      throw new Error("Unexpected response status");
+    } catch (error) {
+      console.error("Error fetching meal by ID:", error);
+      toast.error("Taomni ID bo'yicha yuklashda xatolik yuz berdi");
+      return null;
+    }
+  }
+
   const fetchMeals = async () => {
     try {
-      console.log("Fetching meals from", MEAL_API_BASE);
       const response = await axios.get(MEAL_API_BASE, {
         headers: getHeaders()
       });
@@ -825,7 +846,8 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
         updateExerciseStep,
         createExerciseStep,
         updateMealStep,
-        createMealStep
+        createMealStep,
+        fetchMealById
       }}
     >
       {children}
