@@ -12,7 +12,6 @@ import ImageUploader from "./ImageUploader";
 // Form validation schema
 export const exerciseSchema = z.object({
   name: z.string().min(3, "Kamida 3 ta belgi bo'lishi kerak"),
-  duration: z.coerce.number().min(1, "Davomiyligi 1 daqiqadan kam bo'lmasligi kerak"),
   description: z.string().min(10, "Kamida 10 ta belgi bo'lishi kerak"),
   video_url: z.string().optional(),
 });
@@ -105,28 +104,7 @@ const ExerciseForm: React.FC<ExerciseFormProps> = ({
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="duration"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Vaqti (daq)</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <Input 
-                        type="number"
-                        className="bg-[#131c2e] border-[#2c3855] focus-visible:ring-[#3b82f6] pl-10"
-                        {...field}
-                      />
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                        <Clock size={16} />
-                      </span>
-                    </div>
-                  </FormControl>
-                  <FormMessage className="text-red-400" />
-                </FormItem>
-              )}
-            />
+
           </div>
         </div>
       </form>

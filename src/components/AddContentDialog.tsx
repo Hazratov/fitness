@@ -1,9 +1,9 @@
-
-import React, { useState } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Dumbbell, Utensils, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 
+// Match the props interface with how the component is being used
 interface AddContentDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -13,11 +13,13 @@ const AddContentDialog: React.FC<AddContentDialogProps> = ({ isOpen, onClose }) 
   const navigate = useNavigate();
   
   const handleExerciseClick = () => {
+    // Navigate directly to the URL with the type parameter
     navigate("/add-content?type=mashqlar");
     onClose();
   };
   
   const handleMealClick = () => {
+    // Navigate directly to the URL with the type parameter
     navigate("/add-content?type=taomnnoma");
     onClose();
   };

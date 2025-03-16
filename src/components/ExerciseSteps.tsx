@@ -1,11 +1,9 @@
-
 import React, { useRef } from "react";
 import { Upload, X, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ExerciseStep } from "@/contexts/ContentContext";
 import { toast } from "sonner";
-import { useContent } from "@/contexts/ContentContext";
 
 interface ExerciseStepsProps {
   blockId?: string;
@@ -27,20 +25,18 @@ const ExerciseSteps: React.FC<ExerciseStepsProps> = ({
   onStepImageUpload
 }) => {
   const stepFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  const { updateExerciseStep } = useContent();
   
-  const handleUpdateStep = async (id: string, data: Partial<ExerciseStep>) => {
-    // Update local state immediately for responsive UI
+  // Only update local state
+  const handleUpdateStep = (id: string, data: Partial<ExerciseStep>) => {
     onUpdateStep(id, data);
-    
-    // If we're in edit mode and have a blockId, sync with backend
-    if (blockId) {
-      try {
-        await updateExerciseStep(id, data);
-      } catch (error) {
-        console.error("Failed to update step on server:", error);
-        toast.error("Qadam yangilanmadi, qayta urinib ko'ring");
-      }
+  };
+  
+  // Handle file selection without immediate API call
+  const handleFileChange = (stepId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      onUpdateStep(stepId, { file }); 
+      onStepImageUpload(stepId, file);
     }
   };
   
@@ -131,10 +127,7 @@ const ExerciseSteps: React.FC<ExerciseStepsProps> = ({
                     }}
                     className="hidden" 
                     accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) onStepImageUpload(step.id, file);
-                    }}
+                    onChange={(e) => handleFileChange(step.id, e)}
                   />
                 </div>
               </div>

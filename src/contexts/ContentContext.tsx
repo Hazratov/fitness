@@ -91,7 +91,7 @@ interface MealAPI {
   description?: string;
   video_url?: string;
   steps: MealStepAPI[];
-  food_photo?: string;
+  food_photo_url?: string;
 }
 
 interface ContentContextType {
@@ -164,6 +164,7 @@ const convertToExerciseBlockAPI = (block: Partial<ExerciseBlock>): Partial<Exerc
     block_time: String(block.duration || "0"),
     block_kkal: block.block_kkal,
     block_water_amount: block.block_water_amount,
+    block_image_url: block.image_url,
     calories_burned: block.calories_burned,
     exercises: block.steps?.map(step => ({
       name: step.name,
@@ -183,7 +184,7 @@ const convertFromMealAPI = (apiMeal: MealAPI): Meal => {
     description: apiMeal.description || "",
     video_url: apiMeal.video_url,
     meal_type: apiMeal.meal_type,
-    image_url: apiMeal.food_photo,
+    image_url: apiMeal.food_photo_url,
     steps: apiMeal.steps.map(step => ({
       id: String(step.id),
       title: step.title,
@@ -313,14 +314,32 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const addExerciseBlock = async (block: Omit<ExerciseBlock, "id">) => {
     try {
-      const apiBlock = convertToExerciseBlockAPI(block);
+      // Extract the image URL to handle it separately
+      const { image_url, ...blockData } = block as any;
+      const apiBlock = convertToExerciseBlockAPI(blockData);
+      
+      console.log("Sending exercise block data:", apiBlock);
       
       const response = await axios.post(EXERCISE_API_BASE + "/", apiBlock, {
         headers: getHeaders()
       });
       
       if (response.status === 201 || response.status === 200) {
-        const newBlock = convertFromExerciseBlockAPI(response.data);
+        let newBlock = convertFromExerciseBlockAPI(response.data);
+        
+        // If there's an image URL provided, upload it in a separate request
+        if (image_url && newBlock.id) {
+          // Convert the base64 image to a File object
+          const imageFile = await base64ToFile(image_url, 'block-image.png');
+          await uploadExerciseBlockImage(newBlock.id, imageFile);
+          
+          // Fetch the block again to get the updated image URL
+          const updatedBlock = await fetchExerciseBlockById(newBlock.id);
+          if (updatedBlock) {
+            newBlock = updatedBlock;
+          }
+        }
+        
         setExerciseBlocks(prev => [...prev, newBlock]);
         toast.success("Mashq bloki muvaffaqiyatli qo'shildi");
         return;
@@ -341,36 +360,66 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       toast.success("Mashq bloki muvaffaqiyatli qo'shildi (test mode)");
     }
   };
-
-  const updateExerciseBlock = async (id: string, block: Partial<ExerciseBlock>) => {
+  
+  // Helper function to convert base64 to File
+  const base64ToFile = async (base64String: string, fileName: string): Promise<File> => {
+    // Extract the MIME type and base64 data
+    const parts = base64String.split(';base64,');
+    const contentType = parts[0].split(':')[1] || 'image/png';
+    const raw = window.atob(parts[1]);
+    const rawLength = raw.length;
+    const array = new Uint8Array(new ArrayBuffer(rawLength));
+    
+    for (let i = 0; i < rawLength; i++) {
+      array[i] = raw.charCodeAt(i);
+    }
+    
+    return new File([array], fileName, { type: contentType });
+  };
+  
+  // Add this function to fetch a single exercise block by ID
+  const fetchExerciseBlockById = async (id: string): Promise<ExerciseBlock | null> => {
     try {
-      const apiBlock = convertToExerciseBlockAPI(block);
-      
-      const response = await axios.put(`${EXERCISE_API_BASE}/${id}/`, apiBlock, {
+      const response = await axios.get(`${EXERCISE_API_BASE}/${id}/`, {
         headers: getHeaders()
       });
       
       if (response.status === 200) {
-        const updatedBlock = convertFromExerciseBlockAPI(response.data);
+        const apiBlock = response.data;
+        console.log("Fetched block by ID:", apiBlock);
+        return convertFromExerciseBlockAPI(apiBlock);
+      }
+      
+      return null;
+    } catch (error) {
+      console.error("Error fetching exercise block by ID:", error);
+      return null;
+    }
+  };
+
+  const updateExerciseBlock = async (id: string, block: Partial<ExerciseBlock>) => {
+    try {
+      const response = await axios.put(`${EXERCISE_API_BASE}/${id}/`, block, {
+        headers: getHeaders()
+      });
+  
+      if (response.status === 200) {
         setExerciseBlocks(prev => 
-          prev.map(item => item.id === id ? { ...item, ...updatedBlock } : item)
+          prev.map(item => item.id === id ? { ...item, ...response.data } : item)
         );
         toast.success("Mashq bloki muvaffaqiyatli yangilandi");
         return;
       }
-      
+  
       throw new Error("Unexpected response status");
     } catch (error) {
       console.error("Error updating exercise block:", error);
       toast.error("Mashq blokini yangilashda xatolik yuz berdi");
-      
-      // Mock implementation for development/demo purposes
-      setExerciseBlocks(prev => 
-        prev.map(item => item.id === id ? { ...item, ...block } : item)
-      );
-      toast.success("Mashq bloki muvaffaqiyatli yangilandi (test mode)");
+  
+
     }
   };
+  
 
   const deleteExerciseBlock = async (id: string) => {
     try {
@@ -400,6 +449,9 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const formData = new FormData();
       formData.append('block_image', file);
       
+      console.log("Uploading image for block ID:", id);
+      console.log("FormData content:", formData);
+      
       const response = await axios.patch(`${EXERCISE_API_BASE}/${id}/upload-block-image/`, formData, {
         headers: {
           ...getHeaders(),
@@ -407,11 +459,16 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
       });
       
+      console.log("Image upload response:", response.data);
+      
       if (response.status === 200) {
-        const updatedBlock = convertFromExerciseBlockAPI(response.data);
+        // Check what fields are available in the response
+        const imageUrl = response.data.block_image_url || response.data.image_url || response.data.url;
+        
         setExerciseBlocks(prev => 
-          prev.map(item => item.id === id ? { ...item, image_url: updatedBlock.image_url } : item)
+          prev.map(item => item.id === id ? { ...item, image_url: imageUrl } : item)
         );
+        
         toast.success("Rasm muvaffaqiyatli yuklandi");
         return;
       }
@@ -421,14 +478,14 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       console.error("Error uploading exercise block image:", error);
       toast.error("Rasmni yuklashda xatolik yuz berdi");
       
-      // Mock implementation for development/demo purposes
+      // Test rejimi uchun mock qilish
       const imageUrl = URL.createObjectURL(file);
       setExerciseBlocks(prev => 
         prev.map(item => item.id === id ? { ...item, image_url: imageUrl } : item)
       );
       toast.success("Rasm muvaffaqiyatli yuklandi (test mode)");
     }
-  };
+  };  
 
   const uploadExerciseStepImage = async (blockId: string, stepId: string, file: File) => {
     try {
@@ -578,37 +635,36 @@ export const ContentProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const uploadMealImage = async (id: string, file: File) => {
     try {
       const formData = new FormData();
-      formData.append('food_photo', file);
-      
+      formData.append("food_photo", file);
+  
       const response = await axios.patch(`${MEAL_API_BASE}/${id}/upload-photo/`, formData, {
         headers: {
           ...getHeaders(),
-          'Content-Type': 'multipart/form-data'
-        }
+          "Content-Type": "multipart/form-data",
+        },
       });
-      
+  
       if (response.status === 200) {
-        const updatedMeal = convertFromMealAPI(response.data);
-        setMeals(prev => 
-          prev.map(item => item.id === id ? { ...item, image_url: updatedMeal.image_url } : item)
+        console.log("API Response:", response.data);  // API javobini tekshirish
+  
+        // API faqat `message` qaytargani sababli, `convertFromMealAPI` chaqirilmaydi
+        setMeals((prev) =>
+          prev.map((item) =>
+            item.id === id ? { ...item, image_url: URL.createObjectURL(file) } : item
+          )
         );
+  
         toast.success("Rasm muvaffaqiyatli yuklandi");
         return;
       }
-      
+  
       throw new Error("Unexpected response status");
     } catch (error) {
       console.error("Error uploading meal image:", error);
       toast.error("Rasmni yuklashda xatolik yuz berdi");
-      
-      // Mock implementation for development/demo purposes
-      const imageUrl = URL.createObjectURL(file);
-      setMeals(prev => 
-        prev.map(item => item.id === id ? { ...item, image_url: imageUrl } : item)
-      );
-      toast.success("Rasm muvaffaqiyatli yuklandi (test mode)");
     }
   };
+  
 
   const updateExerciseStep = async (stepId: string, data: Partial<ExerciseStep>) => {
     try {
