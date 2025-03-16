@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,7 +9,8 @@ import NotFound from "./pages/NotFound";
 import ContentList from "./pages/ContentList";
 import AddEditContent from "./pages/AddEditContent";
 import { ContentProvider } from "./contexts/ContentContext";
-import  AddContent  from "./pages/AddContent";
+import AddContent from "./pages/AddContent";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -22,14 +22,21 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            {/* Открытые маршруты */}
             <Route path="/login" element={<Login />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/content" element={<ContentList />} />
-            <Route path="/add-content" element={<AddContent/>} />
-            <Route path="/edit-exercise/:id" element={<AddEditContent type="mashqlar" />} />
-            <Route path="/edit-meal/:id" element={<AddEditContent type="taomnoma" />} />
-            <Route path="*" element={<NotFound />} />
+
+            {/* Защищенные маршруты */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/content" element={<ContentList />} />
+              <Route path="/add-content" element={<AddContent />} />
+              <Route path="/edit-exercise/:id" element={<AddEditContent type="mashqlar" />} />
+              <Route path="/edit-meal/:id" element={<AddEditContent type="taomnoma" />} />
+              <Route path="*" element={<NotFound />} />
+            </Route>
+
+            {/* Перенаправление с корневого маршрута */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>

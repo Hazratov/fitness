@@ -126,8 +126,17 @@ const MEAL_STEP_API_BASE = `${API_BASE_URL}/api/food/api/meal-steps`;
 
 // Headers
 const getHeaders = () => {
-  // Get the token from localStorage or another auth context
-  const token = localStorage.getItem("adminToken");
+  // Function to get cookie value by name
+  const getCookie = (name) => {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return undefined;
+  };
+
+  // Try to get the token from cookies first, fall back to localStorage for backward compatibility
+  const token = getCookie("accessToken") || localStorage.getItem("adminToken");
+
   return {
     Authorization: token ? `Bearer ${token}` : "",
     "Content-Type": "application/json",
