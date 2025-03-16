@@ -69,7 +69,7 @@ const StatsCard = ({
             <p className="text-sm text-white/70">{title}</p>
             <div className="flex items-end gap-2">
                 <p className="text-4xl font-bold">{mainValue}</p>
-                {trend && <span className="mb-1 text-sm text-green-400">{trend}</span>}
+                {/*{trend && <span className="mb-1 text-sm text-green-400">{trend}</span>}*/}
             </div>
             <div className="space-y-3">
                 {subStats.map((stat, index) => (
@@ -82,11 +82,11 @@ const StatsCard = ({
                         </div>
                         <div className="flex items-center gap-2">
                             <span className="font-medium">{stat.value}</span>
-                            {stat.trend && (
-                                <span className={stat.trend.positive ? "text-green-400" : "text-red-400"}>
-                  ({stat.trend.value})
-                </span>
-                            )}
+                {/*            {stat.trend && (*/}
+                {/*                <span className={stat.trend.positive ? "text-green-400" : "text-red-400"}>*/}
+                {/*  ({stat.trend.value})*/}
+                {/*</span>*/}
+                {/*            )}*/}
                         </div>
                     </div>
                 ))}
