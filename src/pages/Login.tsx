@@ -107,7 +107,7 @@ const Login = () => {
         toast({
           title: "Muvaffaqiyatli",
           description: "Tizimga muvaffaqiyatli kirdingiz",
-          variant: "success",
+          variant: "default",
         });
 
         navigate("/dashboard");

@@ -16,31 +16,38 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ContentProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            {/* Открытые маршруты */}
-            <Route path="/login" element={<Login />} />
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <Routes>
+          {/* Открытые маршруты */}
+          <Route path="/login" element={<Login />} />
 
-            {/* Защищенные маршруты */}
-            <Route element={<ProtectedRoute />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/content" element={<ContentList />} />
-              <Route path="/add-content" element={<AddContent />} />
-              <Route path="/edit-exercise/:id" element={<AddEditContent type="mashqlar" />} />
-              <Route path="/edit-meal/:id" element={<AddEditContent type="taomnoma" />} />
-              <Route path="*" element={<NotFound />} />
-            </Route>
+          {/* Защищенные маршруты */}
+          <Route element={<ProtectedRoute />}>
+            <Route
+              path="/*"
+              element={
+                <ContentProvider>
+                  <Routes>
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/content" element={<ContentList />} />
+                    <Route path="/add-content" element={<AddContent />} />
+                    <Route path="/edit-exercise/:id" element={<AddEditContent type="mashqlar" />} />
+                    <Route path="/edit-meal/:id" element={<AddEditContent type="taomnoma" />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </ContentProvider>
+              }
+            />
+          </Route>
 
-            {/* Перенаправление с корневого маршрута */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </ContentProvider>
+          {/* Перенаправление с корневого маршрута */}
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </TooltipProvider>
   </QueryClientProvider>
 );
 
