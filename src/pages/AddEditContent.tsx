@@ -21,7 +21,7 @@ import MealForm, { mealSchema, MealFormValues } from "@/components/MealForm";
 import ExerciseSteps from "@/components/ExerciseSteps";
 import MealSteps from "@/components/MealSteps";
 
-type ContentType = "mashqlar" | "taomnnoma";
+type ContentType = "mashqlar" | "taomnoma";
 
 const AddEditContent: React.FC<{ type: string }> = ({ type }) => {
   const { id } = useParams<{ id: string; }>();
@@ -128,7 +128,7 @@ const AddEditContent: React.FC<{ type: string }> = ({ type }) => {
         const meal = meals.find((meal) => meal.id === id);
         console.log("Taomlar data: ", meal);
         if (meal) {
-          setContentType("taomnnoma");
+          setContentType("taomnoma");
           mealForm.reset({
             name: meal.name,
             calories: String(meal.calories || "0"),
@@ -142,6 +142,7 @@ const AddEditContent: React.FC<{ type: string }> = ({ type }) => {
             meal_type: meal.meal_type,
           });
           setSteps(meal.steps);
+          console.log("Taomlar steps: ", meal.steps);
           if (meal.image_url) setFoodPhoto(meal.image_url);
 
           // Server steps...
@@ -154,9 +155,6 @@ const AddEditContent: React.FC<{ type: string }> = ({ type }) => {
   }, [id, isEditMode, exerciseBlocks, meals, exerciseForm, mealForm, navigate]);
 
  
-  useEffect(() => {
-    console.log("Content type: ", contentType );
-  }, []);
 
   const handleStepImageUpload = (stepId: string, file: File) => {
     if (!file.size) {
@@ -164,7 +162,7 @@ const AddEditContent: React.FC<{ type: string }> = ({ type }) => {
       delete newStepImages[stepId];
       setStepImages(newStepImages);
 
-      // Also remove from pending uploads
+
       const newPendingImages = { ...pendingStepImages };
       delete newPendingImages[stepId];
       setPendingStepImages(newPendingImages);
@@ -212,7 +210,6 @@ const AddEditContent: React.FC<{ type: string }> = ({ type }) => {
   useEffect(() => {
     if (isEditMode && id) {
       const exerciseBlock = exerciseBlocks.find((block) => block.id === id);
-      const meal = meals.find((meal) => meal.id === id);
 
       if (exerciseBlock) {
         setContentType("mashqlar");
@@ -238,32 +235,65 @@ const AddEditContent: React.FC<{ type: string }> = ({ type }) => {
         });
         setStepImages(stepImgMap);
         setServerSteps(serverStepsMap);
-      } else if (meal) {
-        setContentType("taomnnoma");
-        mealForm.reset({
-          name: meal.name,
-          calories: String(meal.calories || "0"),
-          water_intake: String(meal.water_intake || "0"),
-          preparation_time:
-            typeof meal.preparation_time === "number"
-              ? meal.preparation_time
-              : parseInt(String(meal.preparation_time)) || 0,
-          description: meal.description,
-          video_url: meal.video_url || "",
-          meal_type: meal.meal_type,
-        });
-        setSteps(meal.steps);
-        if (meal.image_url) setFoodPhoto(meal.image_url);
-
-        // Mark steps that exist on the server
-        const serverStepsMap: Record<string, boolean> = {};
-        meal.steps.forEach((step) => {
-          serverStepsMap[step.id] = true;
-        });
-        setServerSteps(serverStepsMap);
-      }
+      } 
     }
   }, [id, exerciseBlocks, meals, isEditMode, exerciseForm, mealForm]);
+
+  useEffect(() => {
+    const loadMeal = async () => {
+      if (isEditMode && id && type === "taomnoma") {
+        console.log("Loading meal data for editing. ID:", id);
+        
+        try {
+          // Call the API directly to get fresh data
+          const freshMealData = await fetchMealById(id);
+          console.log("API returned meal data:", freshMealData);
+          
+          if (freshMealData) {
+            // Fill the form with meal data
+            mealForm.reset({
+              name: freshMealData.name,
+              calories: String(freshMealData.calories || "0"),
+              water_intake: String(freshMealData.water_intake || "0"),
+              preparation_time: typeof freshMealData.preparation_time === "number"
+                ? freshMealData.preparation_time
+                : parseInt(String(freshMealData.preparation_time)) || 0,
+              description: freshMealData.description,
+              video_url: freshMealData.video_url || "",
+              meal_type: freshMealData.meal_type,
+            });
+            
+            // Set meal photo if available
+            if (freshMealData.image_url) setFoodPhoto(freshMealData.image_url);
+            
+            // Important: Set steps with explicit check and logging
+            if (Array.isArray(freshMealData.steps)) {
+              console.log("Setting steps from API:", freshMealData.steps.length, "steps found");
+              setSteps(freshMealData.steps);
+              
+              // Also mark these steps as existing on server
+              const newServerSteps = {};
+              freshMealData.steps.forEach(step => {
+                newServerSteps[step.id] = true;
+              });
+              setServerSteps(newServerSteps);
+            } else {
+              console.warn("No steps array found in meal data");
+              setSteps([]);
+            }
+          } else {
+            toast.error("Taom ma'lumotlari topilmadi");
+            navigate("/content");
+          }
+        } catch (error) {
+          console.error("Error fetching meal data:", error);
+          toast.error("Ma'lumotlarni yuklashda xatolik yuz berdi");
+        }
+      }
+    };
+    
+    loadMeal();
+  }, [id, isEditMode, type, fetchMealById, mealForm, navigate]);
 
   const handleMainImageUpload = (file: File) => {
     if (!file.size) {
@@ -307,27 +337,7 @@ const AddEditContent: React.FC<{ type: string }> = ({ type }) => {
 
         // Mark as existing on server
         setServerSteps((prev) => ({ ...prev, [newStepId]: true }));
-      } else {
-        const newStepData: Omit<MealPreparationStep, "id"> = {
-          description: "",
-          title: "",
-          step_time: "5",
-          step_number: steps.length + 1,
-        };
-
-        // Create the step on the server and get back the ID
-        const newStepId = await createMealStep(id, newStepData);
-
-        // Add to local state with the returned ID
-        const newStep: MealPreparationStep = {
-          id: newStepId,
-          ...newStepData,
-        };
-        setSteps((prev) => [...prev, newStep]);
-
-        // Mark as existing on server
-        setServerSteps((prev) => ({ ...prev, [newStepId]: true }));
-      }
+      } 
     } else {
       // If we're in create mode, just create steps locally
       const newStepId = crypto.randomUUID();
@@ -353,6 +363,8 @@ const AddEditContent: React.FC<{ type: string }> = ({ type }) => {
     }
   };
 
+  
+
   const updateStep = (
     id: string,
     data: Partial<ExerciseStep | MealPreparationStep>
@@ -368,6 +380,9 @@ const AddEditContent: React.FC<{ type: string }> = ({ type }) => {
     }
   };
 
+  useEffect(() => {
+    console.log("Steps changed:", steps);
+  })
   const removeStep = (id: string) => {
     setSteps((prev) => prev.filter((step) => step.id !== id));
 
